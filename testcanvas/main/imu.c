@@ -12,7 +12,6 @@
 #include "core2forAWS.h"
 
 #include "imu.h"
-#include "Geometry.h"
 //TODO#include "gauge_hand.c"
 
 static const char* TAG = IMU_TAB_NAME;
