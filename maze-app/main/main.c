@@ -79,10 +79,15 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         ESP_LOGI(TAG, "Current Active Tab: %s\n", tab_name);
 
         vTaskSuspend(DETAILS_handle);
+        vTaskSuspend(MAZE_handle);
 
         if (strcmp(tab_name, DETAILS_TAB_NAME) == 0)
         {
             vTaskResume(DETAILS_handle);
+        }
+        else if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
+        {
+            vTaskResume(MAZE_handle);
         }
     }
 }
