@@ -12,16 +12,23 @@
 
 #include "core2forAWS.h"
 
+#include "arrow-img-30x30.h"
 #include "motivate_math.h"
 #include "maze_tab.h"
 
 #define CANVAS_WIDTH 220
 #define CANVAS_HEIGHT 220
 
-#define NORTH_BIT 0x08
-#define SOUTH_BIT 0x04
-#define WEST_BIT 0x02
-#define EAST_BIT 0x01
+#define NORTH_BIT 0x0001
+#define SOUTH_BIT 0x0002
+#define EAST_BIT  0x0004
+#define WEST_BIT  0x0008 
+#define INOUT_BIT 0x0010
+
+#define NORTH_DIR 0
+#define EAST_DIR  1
+#define SOUTH_DIR 2
+#define WEST_DIR  3
 
 #define WALL_WIDTH 3
 #define WALL_LENGTH 18
@@ -42,12 +49,73 @@ static float calib_az = 0.00;
 static float calib_a_uv[3];
 
 static int x_current_cell = 0;
-static int y_current_cell = 0;
+static int y_current_cell = 13;
 static uint current_dir = 2;
 
 static long last_move_ticks = 0;
 static long last_turn_ticks = 0;
 
+#define MAZE_LEN 14
+#define MAZE_HEIGHT 14
+static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
+    {13, 11, 3, 1, 3, 3, 3, 3, 3, 20, 9, 3, 5, 13},
+    {10, 3, 3, 6, 9, 7, 9, 3, 5, 10, 6, 13, 10, 4},
+    {9, 1, 7, 9, 2, 3, 6, 13, 8, 3, 5, 8, 3, 6},
+    {12, 10, 3, 6, 9, 5, 9, 4, 10, 5, 14, 10, 3, 5},
+    {10, 3, 5, 11, 4, 10, 6, 12, 9, 6, 9, 1, 7, 12},
+    {11, 5, 10, 5, 8, 5, 9, 6, 10, 5, 12, 10, 5, 12},
+    {9, 6, 9, 6, 14, 12, 10, 5, 13, 10, 6, 13, 10, 6},
+    {8, 3, 6, 9, 5, 10, 5, 10, 2, 3, 3, 4, 9, 5},
+    {10, 3, 3, 6, 10, 5, 12, 9, 3, 3, 5, 10, 6, 12},
+    {9, 5, 9, 1, 5, 12, 12, 12, 13, 9, 6, 11, 3, 4},
+    {12, 10, 6, 12, 14, 12, 12, 8, 6, 10, 3, 3, 5, 12},
+    {10, 3, 5, 12, 9, 6, 10, 6, 9, 3, 5, 9, 6, 12},
+    {9, 7, 12, 12, 12, 9, 3, 5, 12, 9, 6, 10, 5, 12},
+    {24, 3, 6, 10, 2, 6, 11, 2, 6, 10, 3, 3, 6, 14}
+
+};
+
+void get_next_cell(int x_from,int y_from,int* x_to,int* y_to,int dir)
+{
+    if (dir == NORTH_DIR) 
+    {
+        *y_to = y_from - 1;
+        *x_to = x_from;
+    }
+    else if (dir == SOUTH_DIR) 
+    {
+        *y_to = y_from + 1;
+        *x_to = x_from;
+    }
+    else if (dir == WEST_DIR) 
+    {
+        *x_to = x_from - 1;
+        *y_to = y_from;
+    }
+    else if (dir == EAST_DIR) 
+    {
+        *x_to = x_from + 1;
+        *y_to = y_from;
+    }
+}
+bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN],int x_maze_len,int y_maze_len,int x_from,int y_from,int* x_to,int* y_to,int dir)
+{
+    get_next_cell(x_from,y_from,x_to,y_to,dir);
+
+    if (*x_to >= x_maze_len ||
+        *y_to >= y_maze_len ||
+        *x_to < 0 ||
+        *y_to < 0 ) return false;
+
+    if (dir == NORTH_DIR && maze[y_from][x_from] & NORTH_BIT)return false;
+    if (dir == SOUTH_DIR && maze[y_from][x_from] & SOUTH_BIT)return false;
+    if (dir == EAST_DIR && maze[y_from][x_from] & EAST_BIT)return false;
+    if (dir == WEST_DIR && maze[y_from][x_from] & WEST_BIT)return false;
+
+    return true;
+
+
+}
 void get_pos_from_cell(int x_cell, int y_cell, int *x_pos, int *y_pos)
 {
     *x_pos = x_cell * (WALL_LENGTH - WALL_WIDTH);
@@ -157,13 +225,16 @@ void display_maze_tab(lv_obj_t *tv)
     xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
     lv_obj_t *test_tab = lv_tabview_add_tab(tv, MAZE_TAB_NAME); // Create a tab
 
+
+
     cbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(CANVAS_WIDTH, CANVAS_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
     lv_obj_t *canvas = lv_canvas_create(test_tab, NULL);
     lv_canvas_set_buffer(canvas, cbuf, CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
 
-    lv_obj_align(canvas, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(canvas, NULL, LV_ALIGN_IN_LEFT_MID, 5, 0);
     lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
+    /*
     for (int i = 0; i < CANVAS_WIDTH / (WALL_LENGTH - WALL_WIDTH); i++)
     {
         for (int j = 0; j < CANVAS_HEIGHT / (WALL_LENGTH - WALL_WIDTH); j++)
@@ -185,24 +256,27 @@ void display_maze_tab(lv_obj_t *tv)
             draw_cell(canvas, s, x_pos, y_pos, t);
         }
     }
+    */
+    int x_pos,y_pos;
+    for (int i = 0; i < 14; i++)
+    {
+        for (int j = 0; j < 14; j++)
+        {
+            int s = 0;
+            get_pos_from_cell(j,i,&x_pos,&y_pos);
+            draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j]);
+        }
+    }
 
-    static lv_color_t gauge_needle_colors[1];
-    gauge_needle_colors[2] = LV_COLOR_BLUE;
+    lv_obj_t * arrow_img = lv_img_create(test_tab, NULL);
+    lv_img_set_src(arrow_img, &arrow_30x30);
+    lv_obj_align(arrow_img, NULL, LV_ALIGN_IN_TOP_RIGHT, -15, 5);
 
-    lv_obj_t *gauge_dir = lv_gauge_create(test_tab, NULL);
-    lv_obj_set_click(gauge_dir, false);
-    lv_obj_set_size(gauge_dir, 80, 80);
-    lv_gauge_set_scale(gauge_dir, 330, 4, 0);
-    lv_gauge_set_range(gauge_dir, 0, 4);
-    lv_gauge_set_needle_count(gauge_dir, 1, gauge_needle_colors);
-    lv_obj_set_style_local_image_recolor_opa(gauge_dir, LV_GAUGE_PART_NEEDLE, LV_STATE_DEFAULT, LV_OPA_COVER);
-
-    lv_obj_align(gauge_dir, NULL, LV_ALIGN_OUT_RIGHT_TOP, -80, 20);
     xSemaphoreGive(xGuiSemaphore);
 
     static lv_obj_t *parms[2];
     parms[0] = canvas;
-    parms[1] = gauge_dir;
+    parms[1] = arrow_img;
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048, parms, 1, &MAZE_handle, 1);
 }
 
@@ -232,22 +306,24 @@ void maze_task(void *pvParameters)
             ticks - last_turn_ticks > TURN_THRESH)
         {
             ESP_LOGI(TAG, "right turn");
-            current_dir = current_dir + 1 % 4;
+            current_dir = (current_dir + 1) % 4;
             last_turn_ticks = ticks;
 
             lv_obj_t **parms = (lv_obj_t **)pvParameters;
-            lv_obj_t *gauge = (lv_obj_t *)parms[1];
-            lv_gauge_set_value(gauge, 0, current_dir);
+            lv_obj_t *arrow = (lv_obj_t *)parms[1];
+            lv_img_set_angle(arrow,900 * current_dir);
+            ESP_LOGI(TAG, "new dir-%i",current_dir);
         }
         else if (gz > 100. &&
                  ticks - last_turn_ticks > TURN_THRESH)
         {
             ESP_LOGI(TAG, "left turn");
-            current_dir = current_dir - 1 % 4;
+            current_dir = (current_dir - 1) % 4;
             last_turn_ticks = ticks;
             lv_obj_t **parms = (lv_obj_t **)pvParameters;
-            lv_obj_t *gauge = (lv_obj_t *)parms[1];
-            lv_gauge_set_value(gauge, 0, current_dir);
+            lv_obj_t *arrow = (lv_obj_t *)parms[1];
+            lv_img_set_angle(arrow,900 * current_dir);
+            ESP_LOGI(TAG, "new dir-%i",current_dir);
         }
         if (ax_cos < HOP_THRESH && //you hopped
             ticks - last_move_ticks > MOVE_THRESH)
@@ -255,28 +331,23 @@ void maze_task(void *pvParameters)
             last_move_ticks = ticks;
             ESP_LOGI(TAG, "Hopped dp-%.6f", ax_cos);
 
+            int y_new_cell,x_new_cell;
+            bool moved = can_move(TEST_MAZE,14,14,x_current_cell,y_current_cell,&x_new_cell,&y_new_cell,current_dir);
+
+            if (!moved) {
+                ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell,y_current_cell,x_new_cell,y_new_cell,current_dir);
+                continue;
+            }
+
+            ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell,y_current_cell,x_new_cell,y_new_cell,current_dir);
             int x_old_pos, y_old_pos;
             get_status_pos_from_cell(x_current_cell, y_current_cell, &x_old_pos, &y_old_pos);
 
-            if (current_dir == 0)
-            {
-                y_current_cell -= 1;
-            }
-            else if (current_dir == 1)
-            {
-                x_current_cell += 1;
-            }
-            else if (current_dir == 2)
-            {
-                y_current_cell += 1;
-            }
-            else if (current_dir == 3)
-            {
-                x_current_cell -= 1;
-            }
-
             int x_new_pos, y_new_pos;
-            get_status_pos_from_cell(x_current_cell, y_current_cell, &x_new_pos, &y_new_pos);
+            get_status_pos_from_cell(x_new_cell, y_new_cell, &x_new_pos, &y_new_pos);
+            x_current_cell = x_new_cell;
+            y_current_cell = y_new_cell;
+
             if ((x_new_pos < CANVAS_WIDTH) &&
                 (y_new_pos < CANVAS_HEIGHT))
             {
