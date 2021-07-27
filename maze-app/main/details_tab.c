@@ -11,11 +11,10 @@
 
 #include "core2forAWS.h"
 
+#include "motivate_math.h"
 #include "details_tab.h"
 
-static float calib_gx = 0.00;
-static float calib_gy = 0.00;
-static float calib_gz = 0.00;
+static float acc_raw[3];
 
 static const char *TAG = DETAILS_TAB_NAME;
 
@@ -55,19 +54,16 @@ void display_details_tab(lv_obj_t *tv)
     label = lv_label_create(cont, NULL);
     lv_label_set_text(label, "Here is an even longer text");
 
-    static lv_color_t gauge_needle_colors[3];
+    static lv_color_t gauge_needle_colors[2];
     gauge_needle_colors[0] = LV_COLOR_RED;
     gauge_needle_colors[1] = LV_COLOR_GREEN;
-    gauge_needle_colors[2] = LV_COLOR_BLUE;
 
     lv_obj_t *gauge_gyr = lv_gauge_create(cont, NULL);
     lv_obj_set_click(gauge_gyr, false);
     lv_obj_set_size(gauge_gyr, 106, 106);
     lv_gauge_set_scale(gauge_gyr, 300, 10, 0);
-    lv_gauge_set_range(gauge_gyr, -400, 400);
-    lv_gauge_set_critical_value(gauge_gyr, 2001);
-    lv_gauge_set_needle_count(gauge_gyr, 3, gauge_needle_colors);
-    //TODOlv_gauge_set_needle_img(gauge, &gauge_hand, 5, 4);
+    lv_gauge_set_range(gauge_gyr, -10, 10);
+    lv_gauge_set_needle_count(gauge_gyr, 2, gauge_needle_colors);
     lv_obj_set_style_local_image_recolor_opa(gauge_gyr, LV_GAUGE_PART_NEEDLE, LV_STATE_DEFAULT, LV_OPA_COVER);
 
     lv_obj_align(gauge_gyr, NULL, LV_ALIGN_IN_RIGHT_MID, -20, 0);
@@ -86,33 +82,26 @@ void DETAILS_task(void *pvParameters)
 
     for (;;)
     {
-        float gx, gy, gz;
-        float ax, ay, az;
-        MPU6886_GetAccelData(&ax, &ay, &az);
-        MPU6886_GetGyroData(&gx, &gy, &gz);
-
-        // float pitch, roll, yaw;
-        // MahonyAHRSupdateIMU(gx * DEGREES_TO_RADIANS, gy * DEGREES_TO_RADIANS, gz * DEGREES_TO_RADIANS, ax, ay, az, &pitch, &roll, &yaw);
-        // ESP_LOGI(TAG, "Pitch: %.6f Roll: %.6f Yaw: %.6f | Raw Accel: X-%.6f Y-%.6f Z-%.6f | Gyro: X-%.6f Y-%.6fZ- %.6f", pitch, yaw, roll, ax, ay, az, gx, gy, gz);
-
-        ESP_LOGI(TAG, "Raw Accel: X-%.6f Y-%.6f Z-%.6f | Gyro: X-%.6f Y-%.6fZ- %.6f", ax, ay, az, gx, gy, gz);
-        //ESP_LOGI(TAG, "Cal Accel: X-%.6f Y-%.6f Z-%.6f | Gyro: X-%.6f Y-%.6fZ- %.6f", calib_ax, calib_ay, calib_az, calib_gx, calib_gy, calib_gz);
+        MPU6886_GetAccelData(&acc_raw[0], &acc_raw[1], &acc_raw[2]);
+        float acc_uv[3];
+        //subract G
+        acc_raw[2] -= 1.;
+        unit_vect(acc_raw, acc_uv, 3);
 
         lv_obj_t **parms = (lv_obj_t **)pvParameters;
         lv_obj_t *gauge = (lv_obj_t *)parms[0];
 
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
-        lv_gauge_set_value(gauge, 0, (int)(gx - calib_gx));
-        lv_gauge_set_value(gauge, 1, (int)(gy - calib_gy));
-        lv_gauge_set_value(gauge, 2, (int)(gz - calib_gz));
+        lv_gauge_set_value(gauge, 0, (int)((acc_raw[2]) * 10.));
+        lv_gauge_set_value(gauge, 1, (int)(acc_raw[1] * 10.));
 
         xSemaphoreGive(xGuiSemaphore);
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
     vTaskDelete(NULL); // Should never get to here...
 }
 void recal(void)
 {
-    MPU6886_GetGyroData(&calib_gx, &calib_gy, &calib_gz);
+    //MPU6886_GetGyroData(&calib_gx, &calib_gy, &calib_gz);
 }

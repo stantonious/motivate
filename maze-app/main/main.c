@@ -22,6 +22,7 @@
 #include "button_handler.h"
 #include "app_wifi.h"
 #include "maze_client.h"
+#include "plot_tab.h"
 
 static const char *TAG = "MAIN";
 
@@ -70,6 +71,7 @@ static void ui_start(void)
     display_game_tab(tab_view);
     display_maze_tab(tab_view);
     display_details_tab(tab_view);
+    display_plot_tab(tab_view);
 
     init_button_handlers();
 }
@@ -84,6 +86,7 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
 
         vTaskSuspend(DETAILS_handle);
         vTaskSuspend(MAZE_handle);
+        vTaskSuspend(PLOT_handle);
 
         if (strcmp(tab_name, DETAILS_TAB_NAME) == 0)
         {
@@ -92,6 +95,10 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         else if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
         {
             vTaskResume(MAZE_handle);
+        }
+        else if (strcmp(tab_name, PLOT_TAB_NAME) == 0)
+        {
+            vTaskResume(PLOT_handle);
         }
     }
 }

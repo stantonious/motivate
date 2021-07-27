@@ -7,3 +7,4 @@ TaskHandle_t MAZE_handle;
 void maze_task(void *pvParameters);
 void display_maze_tab(lv_obj_t* tv);
 void down_recal(void);
+void reset_north(void);

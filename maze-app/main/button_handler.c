@@ -61,11 +61,12 @@ void button_handler_task(void *pvParameters)
         {
             ESP_LOGI(TAG, "middle button pressed");
             ESP_LOGI(TAG, "left button pressed");
+            reset_north();
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             static const char *btns[] = {"Close", ""};
 
             lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
-            lv_msgbox_set_text(mbox1, "MIDDLE TODO");
+            lv_msgbox_set_text(mbox1, "Reset North");
             lv_msgbox_add_btns(mbox1, btns);
             lv_obj_set_width(mbox1, 200);
             lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); /*Align to the corner*/

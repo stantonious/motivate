@@ -1,10 +1,13 @@
 
 
+
+#ifndef MOTIVATE_MATH
+#define MOTIVATE_MATH
 #include "math.h"
 #include "esp_dsp.h"
 
 
-void unit_vect(const float* src1,float* dest,int len)
+inline void unit_vect(const float* src1,float* dest,int len)
 {
     //dest = malloc(sizeof(float) * len);
     float rss = .0;
@@ -17,3 +20,4 @@ void unit_vect(const float* src1,float* dest,int len)
         dest[i] = src1[i]/rss;
     }
 }
+#endif
