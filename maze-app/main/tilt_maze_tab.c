@@ -22,9 +22,9 @@
 #define CANVAS_WIDTH 220
 #define CANVAS_HEIGHT 220
 
-#define TILT_THRESH .4
+#define TILT_THRESH .2
 
-#define MOVE_THRESH 40
+#define MOVE_THRESH 20
 
 #define MINI_PLOT_WIDTH 70
 #define MINI_PLOT_HEIGHT 70
@@ -43,7 +43,6 @@ static const char *TAG = TILT_MAZE_TAB_NAME;
 
 static int x_current_cell = 0;
 static int y_current_cell = 13;
-
 
 static long last_move_ticks = 0;
 
@@ -132,6 +131,65 @@ void display_tilt_maze_tab(lv_obj_t *tv)
 
 float dir_coeffs[] = {.1, .1, .1, .1, .1, .1, .1, .1, .1, .1};
 
+int get_tilt_move(
+    int maze[MAZE_HEIGHT][MAZE_LEN],
+    int x_maze_len,
+    int y_maze_len,
+    int x_from,
+    int y_from,
+    int *x_to,
+    int *y_to,
+    float x_conv,
+    float y_conv)
+{
+    int x_test, y_test;
+    int dir = -1;
+    //get largest, legal move
+    if (fabs(x_conv) < TILT_THRESH && fabs(y_conv) < TILT_THRESH)
+        return -1;
+
+    bool can_move_n = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, NORTH_DIR);
+    bool can_move_s = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, SOUTH_DIR);
+    bool can_move_e = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, EAST_DIR);
+    bool can_move_w = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, WEST_DIR);
+
+    if (fabs(x_conv) > fabs(y_conv))
+    {
+        if (x_conv < 0 && can_move_e)
+            dir = EAST_DIR;
+        else if (x_conv > 0 && can_move_w)
+            dir = WEST_DIR;
+    }
+    else
+    {
+        if (y_conv < 0 && can_move_n)
+            dir = NORTH_DIR;
+        else if (y_conv > 0 && can_move_s)
+            dir = SOUTH_DIR;
+    }
+
+    if (dir < -1)
+    {
+        if (x_conv < 0 && can_move_e)
+            dir = EAST_DIR;
+        else if (x_conv > 0 && can_move_w)
+            dir = WEST_DIR;
+        else if (y_conv < 0 && can_move_n)
+            dir = NORTH_DIR;
+        else if (y_conv > 0 && can_move_s)
+            dir = SOUTH_DIR;
+    }
+
+    if (dir == NORTH_DIR)
+        get_next_cell(x_from, y_from, x_to, y_to, NORTH_DIR);
+    else if (dir == SOUTH_DIR)
+        get_next_cell(x_from, y_from, x_to, y_to, SOUTH_DIR);
+    else if (dir == WEST_DIR)
+        get_next_cell(x_from, y_from, x_to, y_to, WEST_DIR);
+    else if (dir == EAST_DIR)
+        get_next_cell(x_from, y_from, x_to, y_to, EAST_DIR);
+    return dir;
+}
 void tilt_maze_task(void *pvParameters)
 {
 
@@ -158,32 +216,12 @@ void tilt_maze_task(void *pvParameters)
         float x_conv = conv(ax_buf, dir_coeffs, BUFSIZ);
         float y_conv = conv(ay_buf, dir_coeffs, BUFSIZ);
 
+        //ESP_LOGI(TAG,"convs x-%.2f y-%.2f",x_conv,y_conv);
 
-        ESP_LOGI(TAG,"convs x-%.2f y-%.2f",x_conv,y_conv);
-
-        int dir = 0;
-        if (x_conv < -TILT_THRESH)
+        int dir = get_tilt_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, x_conv, y_conv);
+        if (dir < 0) //no legal moves
         {
-            dir = EAST_DIR;
-        }
-        else if (x_conv > TILT_THRESH)
-        {
-            dir = WEST_DIR;
-        }
-        else if (y_conv < -TILT_THRESH)
-        {
-            dir = NORTH_DIR;
-        }
-        else if (y_conv > TILT_THRESH)
-        {
-            dir = SOUTH_DIR;
-        }
-
-        //        ESP_LOGI(TAG, "step conv y:%.6f", y_conv);
-        bool moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, dir);
-        if (!moved)
-        {
-            ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, dir);
+            //ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, dir);
         }
         else if (ticks - last_move_ticks > MOVE_THRESH)
         {
