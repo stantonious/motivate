@@ -23,6 +23,7 @@
 #include "app_wifi.h"
 #include "maze_client.h"
 #include "plot_tab.h"
+#include "tfl-example.h"
 
 static const char *TAG = "MAIN";
 
@@ -49,6 +50,7 @@ void app_main(void)
 
     Core2ForAWS_Init();
     Core2ForAWS_Display_SetBrightness(40); // Last since the display first needs time to finish initializing.
+    init_tf();
 
     //init_wifi();
     //TODO maze_client_init();

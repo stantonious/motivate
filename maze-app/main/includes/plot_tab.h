@@ -1,5 +1,4 @@
 #pragma once
-
 #define PLOT_TAB_NAME "PLOT"
 
 TaskHandle_t PLOT_handle;
