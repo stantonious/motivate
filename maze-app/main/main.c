@@ -18,11 +18,10 @@
 #include "core2forAWS.h"
 #include "game_tab.h"
 #include "maze_tab.h"
-#include "details_tab.h"
+#include "tilt_maze_tab.h"
 #include "button_handler.h"
 #include "app_wifi.h"
 #include "maze_client.h"
-#include "plot_tab.h"
 #include "tfl-example.h"
 
 static const char *TAG = "MAIN";
@@ -72,8 +71,7 @@ static void ui_start(void)
 
     display_game_tab(tab_view);
     display_maze_tab(tab_view);
-    display_details_tab(tab_view);
-    display_plot_tab(tab_view);
+    display_tilt_maze_tab(tab_view);
 
     init_button_handlers();
 }
@@ -86,21 +84,15 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         const char *tab_name = ext->tab_name_ptr[lv_tabview_get_tab_act(tab_view)];
         ESP_LOGI(TAG, "Current Active Tab: %s\n", tab_name);
 
-        vTaskSuspend(DETAILS_handle);
         vTaskSuspend(MAZE_handle);
-        vTaskSuspend(PLOT_handle);
 
-        if (strcmp(tab_name, DETAILS_TAB_NAME) == 0)
-        {
-            vTaskResume(DETAILS_handle);
-        }
-        else if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
+        if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
         {
             vTaskResume(MAZE_handle);
         }
-        else if (strcmp(tab_name, PLOT_TAB_NAME) == 0)
+        else if (strcmp(tab_name, TILT_MAZE_TAB_NAME) == 0)
         {
-            vTaskResume(PLOT_handle);
+            vTaskResume(TILT_MAZE_handle);
         }
     }
 }

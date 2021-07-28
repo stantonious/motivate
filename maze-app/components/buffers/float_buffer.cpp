@@ -1,55 +1,65 @@
 
 #include "float_buffer.h"
-#include <CircularBuffer.h>
+#include "CircularBuffer.h"
 
-typedef CircularBuffer<float, 10> bufType;
-typedef CircularBuffer<float, 50> bigBufType;
+
+typedef CircularBuffer<float, BUFSIZE> bufType;
+typedef CircularBuffer<float, BIG_BUFSIZE> bigBufType;
 
 void *get_buffer()
 {
-    return nullptr;
-}
-
-void push(void *buf, float val)
-{
-}
-
-float get(void *buf, int idx)
-{
-    return 1.;
-}
-
-float get_delta(void *buf)
-{
-    return 1.;
-}
-
-float conv(void *buf, float *coefs, int num)
-{
-    return 1.;
+    bufType *buf = new bufType();
+    return (void*)buf;
 }
 
 void *big_get_buffer()
 {
-    return nullptr;
+    bigBufType *buf = new bigBufType();
+    return (void*)buf;
 }
 
-void big_push(void *buf, float val)
+void push(void *buf, float f)
 {
+    ((bufType*)buf)->push(f);
 }
 
-float big_get(void *buf, int idx)
+void big_push(void *buf, float f)
 {
-    return 1.;
+    ((bigBufType*)buf)->push(f);
 }
 
-float big_get_delta(void *buf)
+float conv(void *buf, float *f, int coefsize)
 {
-    return 1.;
+    float res = 0.;
+
+    for (int i = 0; i < coefsize; i++)
+    {
+        res += (*(bufType*)buf)[i] * f[i];
+    }
+    return res;
 }
 
-float big_conv(void *buf, float *coefs, int num)
+float get(void *buf,int idx)
 {
+    return (*(bufType*)buf)[idx];
+}
 
-    return 1.;
+float big_get(void *buf,int idx)
+{
+    return (*(bigBufType*)buf)[idx];
+}
+
+float get_delta(void *buf)
+{
+    float min = 1e10;
+    float max = -1e10;
+
+    for (int i=0;i<BUFSIZE;i++)
+    {
+        float v = get(buf,i);
+        if (v < min) min = v;
+        if (v > max) max = v;
+    }
+
+    return max - min;
 }

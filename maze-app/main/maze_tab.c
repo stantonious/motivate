@@ -15,32 +15,18 @@
 #include "arrow-img-30x30.h"
 #include "motivate_math.h"
 #include "maze_tab.h"
+#include "plots.h"
+#include "maze_utils.h"
+#include "maze.h"
 #include "float_buffer.h"
 
 #define CANVAS_WIDTH 220
 #define CANVAS_HEIGHT 220
-#define ACCEL_MAX 1.
 
-#define MINI_PLOT_WIDTH 80
-#define MINI_PLOT_HEIGHT 80
+#define MINI_PLOT_WIDTH 70
+#define MINI_PLOT_HEIGHT 70
 #define MINI_PLOT_NUM 20
 
-#define NORTH_BIT 0x0001
-#define SOUTH_BIT 0x0002
-#define EAST_BIT 0x0004
-#define WEST_BIT 0x0008
-#define INOUT_BIT 0x0010
-
-#define NORTH_DIR 0
-#define EAST_DIR 1
-#define SOUTH_DIR 2
-#define WEST_DIR 3
-
-#define WALL_WIDTH 3
-#define WALL_LENGTH 18
-
-#define STATUS_WIDTH 8
-#define STATUS_LENGTH 8
 
 #define MOVE_THRESH 30
 #define TURN_THRESH 60
@@ -50,6 +36,7 @@
 
 static lv_color_t *cbuf;
 static lv_color_t *miniplotbuf;
+static lv_color_t *gyrominiplotbuf;
 static const char *TAG = MAZE_TAB_NAME;
 
 static float calib_ax = 0.00;
@@ -66,12 +53,14 @@ static bool redraw_dir = true;
 static long last_move_ticks = 0;
 static long last_turn_ticks = 0;
 
-#define MAZE_LEN 14
-#define MAZE_HEIGHT 14
-
 static void *ax_buf;
 static void *ay_buf;
 static void *az_buf;
+
+static void *gx_buf;
+static void *gy_buf;
+static void *gz_buf;
+
 
 static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
     {13, 11, 3, 1, 3, 3, 3, 3, 3, 20, 9, 3, 5, 13},
@@ -91,196 +80,16 @@ static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
 
 };
 
-void get_next_cell(int x_from, int y_from, int *x_to, int *y_to, int dir)
-{
-    if (dir == NORTH_DIR)
-    {
-        *y_to = y_from - 1;
-        *x_to = x_from;
-    }
-    else if (dir == SOUTH_DIR)
-    {
-        *y_to = y_from + 1;
-        *x_to = x_from;
-    }
-    else if (dir == WEST_DIR)
-    {
-        *x_to = x_from - 1;
-        *y_to = y_from;
-    }
-    else if (dir == EAST_DIR)
-    {
-        *x_to = x_from + 1;
-        *y_to = y_from;
-    }
-}
-bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, int x_from, int y_from, int *x_to, int *y_to, int dir)
-{
-    get_next_cell(x_from, y_from, x_to, y_to, dir);
-
-    if (*x_to >= x_maze_len ||
-        *y_to >= y_maze_len ||
-        *x_to < 0 ||
-        *y_to < 0)
-        return false;
-
-    if (dir == NORTH_DIR && maze[y_from][x_from] & NORTH_BIT)
-        return false;
-    if (dir == SOUTH_DIR && maze[y_from][x_from] & SOUTH_BIT)
-        return false;
-    if (dir == EAST_DIR && maze[y_from][x_from] & EAST_BIT)
-        return false;
-    if (dir == WEST_DIR && maze[y_from][x_from] & WEST_BIT)
-        return false;
-
-    return true;
-}
-void get_pos_from_cell(int x_cell, int y_cell, int *x_pos, int *y_pos)
-{
-    *x_pos = x_cell * (WALL_LENGTH - WALL_WIDTH);
-    *y_pos = y_cell * (WALL_LENGTH - WALL_WIDTH);
-}
-
-void get_status_pos_from_cell(int x_cell, int y_cell, int *x_pos, int *y_pos)
-{
-    *x_pos = x_cell * (WALL_LENGTH - WALL_WIDTH) + (WALL_LENGTH / 2) - (STATUS_WIDTH / 2);
-    *y_pos = y_cell * (WALL_LENGTH - WALL_WIDTH) + (WALL_LENGTH / 2) - (STATUS_LENGTH / 2);
-}
-
-void draw_status(lv_obj_t *canvas, int status, int x_pos, int y_pos)
-{
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
-    if (status == 0)
-    {
-        rect_dsc.bg_color = LV_COLOR_SILVER;
-    }
-    else if (status == 1)
-    {
-        rect_dsc.bg_color = LV_COLOR_YELLOW;
-    }
-    else if (status == 2)
-    {
-        rect_dsc.bg_color = LV_COLOR_MAROON;
-    }
-    else if (status == 3)
-    {
-        rect_dsc.bg_color = LV_COLOR_GREEN;
-    }
-    else if (status == 4)
-    {
-        rect_dsc.bg_color = LV_COLOR_BLUE;
-    }
-    else if (status == 5)
-    {
-        rect_dsc.bg_color = LV_COLOR_PURPLE;
-    }
-    else
-    {
-        return;
-    }
-    lv_canvas_draw_rect(
-        canvas,
-        x_pos,
-        y_pos,
-        STATUS_WIDTH,
-        STATUS_LENGTH,
-        &rect_dsc);
-}
-
-void draw_cell(lv_obj_t *canvas, int status, int x_pos, int y_pos, int type)
-{
-
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
-    rect_dsc.bg_color = LV_COLOR_RED;
-
-    if (type & NORTH_BIT)
-    {
-        lv_canvas_draw_rect(
-            canvas,
-            x_pos,
-            y_pos,
-            WALL_LENGTH,
-            WALL_WIDTH, &rect_dsc);
-    }
-    if (type & SOUTH_BIT)
-    {
-        lv_canvas_draw_rect(
-            canvas,
-            x_pos,
-            y_pos + WALL_LENGTH - WALL_WIDTH,
-            WALL_LENGTH,
-            WALL_WIDTH, &rect_dsc);
-    }
-    if (type & WEST_BIT)
-    {
-        lv_canvas_draw_rect(
-            canvas,
-            x_pos,
-            y_pos,
-            WALL_WIDTH,
-            WALL_LENGTH, &rect_dsc);
-    }
-    if (type & EAST_BIT)
-    {
-        lv_canvas_draw_rect(
-            canvas,
-            x_pos + WALL_LENGTH - WALL_WIDTH,
-            y_pos,
-            WALL_WIDTH,
-            WALL_LENGTH, &rect_dsc);
-    }
-    draw_status(
-        canvas,
-        status,
-        x_pos + (WALL_LENGTH / 2) - (STATUS_WIDTH / 2),
-        y_pos + (WALL_LENGTH / 2) - (STATUS_LENGTH / 2));
-}
-
-void draw_3_plot(lv_obj_t *canvas, void *buf1, void *buf2, void *buf3, int canvas_height, int canvas_width, int plot_win_len)
-{
-    lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
-
-    int plotSpace = canvas_width / plot_win_len;
-
-    for (int i = 0; i < plot_win_len; i++)
-    {
-        int xy = get(buf1, i) * canvas_height;
-        int yy = get(buf2, i) * canvas_height;
-        int zy = get(buf3, i) * canvas_height;
-        int x = plotSpace * i;
-
-        if (buf1 != NULL)
-        {
-            lv_canvas_set_px(canvas, x, xy, LV_COLOR_RED);
-            lv_canvas_set_px(canvas, x, xy + 1, LV_COLOR_RED);
-            lv_canvas_set_px(canvas, x + 1, xy, LV_COLOR_RED);
-            lv_canvas_set_px(canvas, x + 1, xy + 1, LV_COLOR_RED);
-        }
-
-        if (buf2 != NULL)
-        {
-            lv_canvas_set_px(canvas, x, yy, LV_COLOR_GREEN);
-            lv_canvas_set_px(canvas, x, yy + 1, LV_COLOR_GREEN);
-            lv_canvas_set_px(canvas, x + 1, yy, LV_COLOR_GREEN);
-            lv_canvas_set_px(canvas, x + 1, yy + 1, LV_COLOR_GREEN);
-        }
-
-        if (buf2 != NULL)
-        {
-            lv_canvas_set_px(canvas, x, zy, LV_COLOR_BLUE);
-            lv_canvas_set_px(canvas, x, zy + 1, LV_COLOR_BLUE);
-            lv_canvas_set_px(canvas, x + 1, zy, LV_COLOR_BLUE);
-            lv_canvas_set_px(canvas, x + 1, zy + 1, LV_COLOR_BLUE);
-        }
-    }
-}
 void display_maze_tab(lv_obj_t *tv)
 {
     ax_buf = get_buffer();
     ay_buf = get_buffer();
     az_buf = get_buffer();
+
+    gx_buf = get_buffer();
+    gy_buf = get_buffer();
+    gz_buf = get_buffer();
+
     down_recal(); //initial cal
 
     xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
@@ -297,20 +106,26 @@ void display_maze_tab(lv_obj_t *tv)
     miniplotbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
     lv_obj_t *miniplotcanvas = lv_canvas_create(test_tab, NULL);
     lv_canvas_set_buffer(miniplotcanvas, miniplotbuf, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, LV_IMG_CF_TRUE_COLOR);
-
     lv_obj_align(miniplotcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15);
-    lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
+    lv_canvas_fill_bg(miniplotcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
+
+    //gyro mini plot
+    gyrominiplotbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
+    lv_obj_t *gyrominiplotcanvas = lv_canvas_create(test_tab, NULL);
+    lv_canvas_set_buffer(gyrominiplotcanvas, gyrominiplotbuf, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(gyrominiplotcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15-MINI_PLOT_HEIGHT-2);
+    lv_canvas_fill_bg(gyrominiplotcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
     //leds
-    lv_obj_t * y_led  = lv_led_create(test_tab, NULL);
-    lv_obj_align(y_led, NULL, LV_ALIGN_IN_RIGHT_MID, -10, 0);
-    lv_obj_set_size(y_led,25,25);
+    lv_obj_t *y_led = lv_led_create(test_tab, NULL);
+    lv_obj_align(y_led, NULL, LV_ALIGN_IN_RIGHT_MID, -45, -50);
+    lv_obj_set_size(y_led, 25, 25);
     lv_led_off(y_led);
-    ESP_LOGI(TAG,"after led");
+    ESP_LOGI(TAG, "after led");
 
-    lv_obj_t * z_led  = lv_led_create(test_tab, NULL);
-    lv_obj_align(z_led, NULL, LV_ALIGN_IN_RIGHT_MID, -10, -35);
-    lv_obj_set_size(z_led,25,25);
+    lv_obj_t *z_led = lv_led_create(test_tab, NULL);
+    lv_obj_align(z_led, NULL, LV_ALIGN_IN_RIGHT_MID, -10, -50);
+    lv_obj_set_size(z_led, 25, 25);
     lv_led_off(z_led);
 
     int x_pos, y_pos;
@@ -320,7 +135,7 @@ void display_maze_tab(lv_obj_t *tv)
         {
             int s = 0;
             get_pos_from_cell(j, i, &x_pos, &y_pos);
-            draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j]);
+            draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j],STATUS_WIDTH,STATUS_LENGTH,WALL_WIDTH,WALL_LENGTH);
         }
     }
 
@@ -330,15 +145,16 @@ void display_maze_tab(lv_obj_t *tv)
     lv_img_set_angle(arrow_img, 900 * current_dir);
     int x_init_pos, y_init_pos;
     get_status_pos_from_cell(x_current_cell, y_current_cell, &x_init_pos, &y_init_pos);
-    draw_status(canvas, 5, x_init_pos, y_init_pos);
+    draw_status(canvas, 5, x_init_pos, y_init_pos,STATUS_WIDTH,STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
 
-    static lv_obj_t *parms[5];
+    static lv_obj_t *parms[6];
     parms[0] = canvas;
     parms[1] = arrow_img;
     parms[2] = miniplotcanvas;
-    parms[3] = y_led;
-    parms[4] = z_led;
+    parms[3] = gyrominiplotcanvas;
+    parms[4] = y_led;
+    parms[5] = z_led;
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048, parms, 1, &MAZE_handle, 1);
 }
 
@@ -357,20 +173,17 @@ void maze_task(void *pvParameters)
         MPU6886_GetAccelData(&ax, &ay, &az);
         MPU6886_GetGyroData(&gx, &gy, &gz);
 
-        float acc_raw[3] = {ax, ay, az};
-        //float ax_uv[3];
-        //float ax_cos;
-        //unit_vect(acc_raw, ax_uv, 3);
-
         // Substract out G
-        acc_raw[2] -= 1;
+        az -= 1;
 
-        acc_raw[0] = (acc_raw[0] + ACCEL_MAX) / (2 * ACCEL_MAX);
-        acc_raw[1] = (acc_raw[1] + ACCEL_MAX) / (2 * ACCEL_MAX);
-        acc_raw[2] = (acc_raw[2] + ACCEL_MAX) / (2 * ACCEL_MAX);
-        push(ax_buf, acc_raw[0]);
-        push(ay_buf, acc_raw[1]);
-        push(az_buf, acc_raw[2]);
+        //ESP_LOGI(TAG, "acc x:%.6f y:%.6f z:%.6f", ax,ay,az);
+        push(ax_buf,ax );
+        push(ay_buf,ay); 
+        push(az_buf,az);
+
+        push(gx_buf, gx);
+        push(gy_buf, gy);
+        push(gz_buf, gz);
 
         float y_delta = get_delta(ay_buf);
         float z_delta = get_delta(az_buf);
@@ -379,7 +192,6 @@ void maze_task(void *pvParameters)
         float y_conv = conv(ay_buf, step_coefs, 5);
         //        ESP_LOGI(TAG, "step conv y:%.6f", y_conv);
         //dsps_dotprod_f32(ax_uv, calib_a_uv, &ax_cos, 3);
-
 
         if (gz < -100. &&
             ticks - last_turn_ticks > TURN_THRESH)
@@ -417,7 +229,8 @@ void maze_task(void *pvParameters)
             if (!moved)
                 ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
         }
-        else if (step && y_conv < 0) //backward step
+        //TODO else if (step && y_conv < 0) //backward step
+        else if (false) //backward step
         {
             int back_dir = (current_dir - 2) % 4;
             moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, back_dir);
@@ -442,8 +255,8 @@ void maze_task(void *pvParameters)
                 xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
                 lv_obj_t **parms = (lv_obj_t **)pvParameters;
                 lv_obj_t *canvas = (lv_obj_t *)parms[0];
-                draw_status(canvas, 0, x_old_pos, y_old_pos); //reset status
-                draw_status(canvas, 5, x_new_pos, y_new_pos);
+                draw_status(canvas, 0, x_old_pos, y_old_pos,STATUS_WIDTH,STATUS_LENGTH); //reset status
+                draw_status(canvas, 5, x_new_pos, y_new_pos,STATUS_WIDTH,STATUS_LENGTH);
                 ESP_LOGI(TAG, "time-%ld, old pos x-%i y-%i, new pos x-%i y-%i", ticks, x_old_pos, y_old_pos, x_new_pos, y_new_pos);
                 xSemaphoreGive(xGuiSemaphore);
             }
@@ -452,14 +265,20 @@ void maze_task(void *pvParameters)
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         lv_obj_t **parms = (lv_obj_t **)pvParameters;
         lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[2];
-        lv_obj_t *y_led = (lv_obj_t *)parms[3];
-        lv_obj_t *z_led = (lv_obj_t *)parms[4];
-        draw_3_plot(miniplotcanvas, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[3];
+        lv_obj_t *y_led = (lv_obj_t *)parms[4];
+        lv_obj_t *z_led = (lv_obj_t *)parms[5];
+        draw_3_plot(miniplotcanvas, &scale_acc,ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        draw_3_plot(gyrominiplotcanvas, &scale_gyro,gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
 
-        if (y_delta > STEP_DELTA_Y) lv_led_on(y_led);
-        else lv_led_off(y_led);
-        if (z_delta > STEP_DELTA_Z) lv_led_on(z_led);
-        else lv_led_off(z_led);
+        if (y_delta > STEP_DELTA_Y)
+            lv_led_on(y_led);
+        else
+            lv_led_off(y_led);
+        if (z_delta > STEP_DELTA_Z)
+            lv_led_on(z_led);
+        else
+            lv_led_off(z_led);
         xSemaphoreGive(xGuiSemaphore);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
