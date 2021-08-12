@@ -21,7 +21,7 @@
 
 #include "core2forAWS.h"
 
-#include "mot_client.h"
+#include "mot_mqtt_aws_client.h"
 
 static const char *TAG = "MOT_MQTT_CLIENT";
 static const char *CONFIG_BROKER_URI = "wss://ahdizksxaeeun-ats.iot.us-east-2.amazonaws.com";
@@ -99,8 +99,6 @@ void mot_client_init(void)
      * examples/protocols/README.md for more information about this function.
      */
     //ESP_ERROR_CHECK(example_connect());
-
-    xTaskCreatePinnedToCore(mot_client_task, "MotClientTask", 4096*2, NULL, 1, &MotClientHandle, 1);
 }
 
 void mot_client_task(void *pvParameters)

@@ -19,6 +19,8 @@
 #include "maze_utils.h"
 #include "float_buffer.h"
 
+#include "mot_mqtt_client.h"
+
 #define CANVAS_WIDTH 220
 #define CANVAS_HEIGHT 220
 
@@ -53,6 +55,9 @@ static void *az_buf;
 static void *gx_buf;
 static void *gy_buf;
 static void *gz_buf;
+
+static int8_t last_test_x = -1;
+static int8_t last_test_y = -1;
 
 static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
     {13, 11, 3, 1, 3, 3, 3, 3, 3, 20, 9, 3, 5, 13},
@@ -196,6 +201,10 @@ void tilt_maze_task(void *pvParameters)
     vTaskSuspend(NULL);
     int x_new_cell, y_new_cell;
 
+    lv_obj_t **parms = (lv_obj_t **)pvParameters;
+    lv_obj_t *canvas = (lv_obj_t *)parms[0];
+    lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[1];
+    lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[2];
     for (;;)
     {
         long ticks = xTaskGetTickCount();
@@ -219,6 +228,7 @@ void tilt_maze_task(void *pvParameters)
         //ESP_LOGI(TAG,"convs x-%.2f y-%.2f",x_conv,y_conv);
 
         int dir = get_tilt_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, x_conv, y_conv);
+        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         if (dir < 0) //no legal moves
         {
             //ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, dir);
@@ -238,22 +248,28 @@ void tilt_maze_task(void *pvParameters)
             if ((x_new_pos < CANVAS_WIDTH) &&
                 (y_new_pos < CANVAS_HEIGHT))
             {
-                xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
-                lv_obj_t **parms = (lv_obj_t **)pvParameters;
-                lv_obj_t *canvas = (lv_obj_t *)parms[0];
                 draw_status(canvas, 0, x_old_pos, y_old_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
                 draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH);
                 ESP_LOGI(TAG, "time-%ld, old pos x-%i y-%i, new pos x-%i y-%i", ticks, x_old_pos, y_old_pos, x_new_pos, y_new_pos);
-                xSemaphoreGive(xGuiSemaphore);
             }
         }
 
-        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
-        lv_obj_t **parms = (lv_obj_t **)pvParameters;
-        lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[1];
-        lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[2];
         draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
         draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+
+        int8_t op_x = 0;
+        int8_t op_y = 0;
+        get_op_x_y(&op_x, &op_y);
+        if (op_x >= 0 && op_y >= 0 && (last_test_x != op_x || last_test_y != op_y))
+        {
+            int x_pos, y_pos;
+            get_status_pos_from_cell(last_test_x, last_test_y, &x_pos, &y_pos);
+            draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+            get_status_pos_from_cell(op_x, op_y, &x_pos, &y_pos);
+            draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+            last_test_x = op_x;
+            last_test_y = op_y;
+        }
         xSemaphoreGive(xGuiSemaphore);
         vTaskDelay(pdMS_TO_TICKS(10));
     }

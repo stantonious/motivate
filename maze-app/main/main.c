@@ -23,8 +23,7 @@
 #include "app_wifi.h"
 #include "maze_client.h"
 #include "tfl-example.h"
-//#include "mot_client.h"
-#include "mot_client2.h"
+#include "mot_mqtt_client.h"
 
 static const char *TAG = "MAIN";
 
@@ -53,10 +52,41 @@ void app_main(void)
     Core2ForAWS_Display_SetBrightness(40); // Last since the display first needs time to finish initializing.
     //init_tf();
 
-    init_wifi();
-    //TODO maze_client_init();
-    mot_client2_init();
     ui_start();
+
+    int wifi_retries = 3;
+    int connected = init_wifi();
+    while (!connected && wifi_retries >= 0)
+    {
+        wifi_retries -= 1;
+
+        ESP_LOGI(TAG, "=====Unable to connect to WiFi...retrying=====");
+
+        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+        static const char *btns[] = {"Close", ""};
+        lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
+        lv_msgbox_set_text(mbox1, "Wifi Failed");
+        lv_msgbox_add_btns(mbox1, btns);
+        lv_obj_set_width(mbox1, 200);
+        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
+        xSemaphoreGive(xGuiSemaphore);
+        connected = init_wifi();
+    }
+
+    if (connected){
+        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+        static const char *btns[] = {"Close", ""};
+        lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
+        lv_msgbox_set_text(mbox1, "Wifi Connected");
+        lv_msgbox_add_btns(mbox1, btns);
+        lv_obj_set_width(mbox1, 200);
+        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
+        xSemaphoreGive(xGuiSemaphore);
+
+    }
+
+    //TODO maze_client_init();
+    mot_mqtt_client_init();
 }
 
 static void ui_start(void)

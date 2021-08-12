@@ -51,7 +51,8 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
-void init_wifi(void)
+
+int init_wifi(void)
 {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -122,4 +123,6 @@ void init_wifi(void)
     ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler));
     ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler));
     vEventGroupDelete(s_wifi_event_group);
+
+    return bits & WIFI_CONNECTED_BIT;
 }

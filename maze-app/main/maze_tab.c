@@ -20,7 +20,7 @@
 #include "maze.h"
 #include "float_buffer.h"
 
-#include "mot_client2.h"
+#include "mot_mqtt_client.h"
 
 #define CANVAS_WIDTH 220
 #define CANVAS_HEIGHT 220
@@ -176,7 +176,7 @@ void maze_task(void *pvParameters)
 
     vTaskSuspend(NULL);
 
-    int cnt=0;
+    int cnt = 0;
     for (;;)
     {
         cnt++;
@@ -193,7 +193,7 @@ void maze_task(void *pvParameters)
         //ESP_LOGI(TAG, "acc x:%.6f y:%.6f z:%.6f", ax,ay,az);
         push(ax_buf, ax);
         push(ay_buf, ay);
-      push(az_buf, az);
+        push(az_buf, az);
 
         push(gx_buf, gx);
         push(gy_buf, gy);
@@ -203,7 +203,7 @@ void maze_task(void *pvParameters)
         float z_delta = get_delta(az_buf);
 
         bool step = y_delta > STEP_DELTA_Y && z_delta > STEP_DELTA_Z && ticks - last_move_ticks > MOVE_THRESH;
-       float y_conv = conv(ay_buf, step_coefs, 5);
+        float y_conv = conv(ay_buf, step_coefs, 5);
         //ESP_LOGI(TAG, "step conv y:%.6f", y_conv);
         //dsps_dotprod_f32(ax_uv, calib_a_uv, &ax_cos, 3);
 
@@ -270,8 +270,8 @@ void maze_task(void *pvParameters)
             }
         }
 
-        int8_t op_x= 0;
-        int8_t op_y= 0;
+        int8_t op_x = 0;
+        int8_t op_y = 0;
         get_op_x_y(&op_x, &op_y);
         if (op_x >= 0 && op_y >= 0 && (last_test_x != op_x || last_test_y != op_y))
         {

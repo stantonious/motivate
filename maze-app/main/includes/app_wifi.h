@@ -2,4 +2,5 @@
 #pragma once
 
 
-void init_wifi(void);
+//1 = success, 0 = failure
+int init_wifi(void);

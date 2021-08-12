@@ -4,5 +4,4 @@
 
 TaskHandle_t MotClientHandle;
 
-void mot_client_init(void);
-void mot_client_task(void *pvParameters);
+void mot_mqtt_aws_client_init(void);

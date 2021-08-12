@@ -13,7 +13,7 @@
 #include "cJSON.h"
 #include <sys/param.h>
 
-#include "mot_client2.h"
+#include "mot_mqtt_client.h"
 
 
 static const char *TAG = "MOT_MQTT_CLIENT";
@@ -37,6 +37,7 @@ extern const uint32_t mot0_public_pem_length;
 static int8_t op_x = -1;
 static int8_t op_y = -1;
 
+static const char* CLIENT_ID="basicPubSub";
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
@@ -123,7 +124,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-void mot_client2_init(void)
+void mot_mqtt_client_init(void)
 {
     esp_err_t esp_ret = ESP_FAIL;
 
@@ -136,16 +137,11 @@ void mot_client2_init(void)
 
     const esp_mqtt_client_config_t mqtt_cfg = {
         .uri = CONFIG_BROKER_URI,
-        //.cert_pem = (const char *)mot0_device_pem_start,
-        //.cert_len = mot0_device_pem_length + 1,
-        //.client_cert_pem = (const char *)mot0_public_pem_start,
         .client_cert_pem = (const char *)mot0_device_pem_start,
-        //.client_cert_len = mot0_public_pem_length ,
         .client_key_pem = (const char *)mot0_private_pem_start,
-        //.client_key_len = mot0_private_pem_length ,
         .protocol_ver = MQTT_PROTOCOL_V_3_1_1,
         .use_global_ca_store = true,
-        .client_id = "basicPubSub"};
+        .client_id = CLIENT_ID};
 
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
@@ -156,15 +152,13 @@ void mot_client2_init(void)
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
 
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("*", ESP_LOG_DEBUG);
     esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
     esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
     esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_BASE", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
-
-    //    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     esp_mqtt_client_start(client);
 }
@@ -173,8 +167,4 @@ void get_op_x_y(int8_t *x, int8_t *y)
 {
     *x = op_x;
     *y = op_y;
-}
-
-void mot_client2_task(void *pvParameters)
-{
 }
