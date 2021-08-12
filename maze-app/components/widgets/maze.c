@@ -30,6 +30,10 @@ void draw_status(lv_obj_t *canvas, int status, int x_pos, int y_pos, int status_
     {
         rect_dsc.bg_color = LV_COLOR_PURPLE;
     }
+    else if (status == 6)
+    {
+        rect_dsc.bg_color = LV_COLOR_ORANGE;
+    }
     else
     {
         return;

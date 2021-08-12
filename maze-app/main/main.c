@@ -23,7 +23,8 @@
 #include "app_wifi.h"
 #include "maze_client.h"
 #include "tfl-example.h"
-#include "mot_client.h"
+//#include "mot_client.h"
+#include "mot_client2.h"
 
 static const char *TAG = "MAIN";
 
@@ -54,7 +55,7 @@ void app_main(void)
 
     init_wifi();
     //TODO maze_client_init();
-    mot_client_init();
+    mot_client2_init();
     ui_start();
 }
 
@@ -87,6 +88,7 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         ESP_LOGI(TAG, "Current Active Tab: %s\n", tab_name);
 
         vTaskSuspend(MAZE_handle);
+        vTaskSuspend(TILT_MAZE_handle);
 
         if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
         {
