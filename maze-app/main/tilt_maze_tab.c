@@ -117,13 +117,13 @@ void display_tilt_maze_tab(lv_obj_t *tv)
         for (int j = 0; j < 14; j++)
         {
             int s = 0;
-            get_pos_from_cell(j, i, &x_pos, &y_pos);
-            draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j], STATUS_WIDTH, STATUS_LENGTH, WALL_WIDTH, WALL_LENGTH);
+            get_pos_from_cell(j, i, NORTH_DIR,&x_pos, &y_pos);
+            draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j], NORTH_DIR,STATUS_WIDTH, STATUS_LENGTH, WALL_WIDTH, WALL_LENGTH);
         }
     }
 
     int x_init_pos, y_init_pos;
-    get_status_pos_from_cell(x_current_cell, y_current_cell, &x_init_pos, &y_init_pos);
+    get_status_pos_from_cell(x_current_cell, y_current_cell, NORTH_DIR,&x_init_pos, &y_init_pos,0,0);
     draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
 
@@ -238,10 +238,10 @@ void tilt_maze_task(void *pvParameters)
             last_move_ticks = ticks;
             ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, dir);
             int x_old_pos, y_old_pos;
-            get_status_pos_from_cell(x_current_cell, y_current_cell, &x_old_pos, &y_old_pos);
+            get_status_pos_from_cell(x_current_cell, y_current_cell, NORTH_DIR,&x_old_pos, &y_old_pos,x_current_cell,y_current_cell);
 
             int x_new_pos, y_new_pos;
-            get_status_pos_from_cell(x_new_cell, y_new_cell, &x_new_pos, &y_new_pos);
+            get_status_pos_from_cell(x_new_cell, y_new_cell, NORTH_DIR,&x_new_pos, &y_new_pos,x_current_cell,y_current_cell);
             x_current_cell = x_new_cell;
             y_current_cell = y_new_cell;
 
@@ -254,8 +254,8 @@ void tilt_maze_task(void *pvParameters)
             }
         }
 
-        draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
-        draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        //draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        //draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
 
         int8_t op_x = 0;
         int8_t op_y = 0;
@@ -263,9 +263,9 @@ void tilt_maze_task(void *pvParameters)
         if (op_x >= 0 && op_y >= 0 && (last_test_x != op_x || last_test_y != op_y))
         {
             int x_pos, y_pos;
-            get_status_pos_from_cell(last_test_x, last_test_y, &x_pos, &y_pos);
+            get_status_pos_from_cell(last_test_x, last_test_y, NORTH_DIR,&x_pos, &y_pos,x_current_cell,y_current_cell);
             draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
-            get_status_pos_from_cell(op_x, op_y, &x_pos, &y_pos);
+            get_status_pos_from_cell(op_x, op_y, NORTH_DIR,&x_pos, &y_pos,x_current_cell,y_current_cell);
             draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             last_test_x = op_x;
             last_test_y = op_y;

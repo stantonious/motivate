@@ -16,7 +16,6 @@
 #define SOUTH_DIR 2
 #define WEST_DIR 3
 
-
 #define WALL_WIDTH 3
 #define WALL_LENGTH 18
 
@@ -27,9 +26,12 @@
 #define GYRO_MAX 300.
 
 void get_next_cell(int x_from, int y_from, int *x_to, int *y_to, int dir);
-bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, int x_from, int y_from, int *x_to, int *y_to, int dir);
-void get_pos_from_cell(int x_cell, int y_cell, int *x_pos, int *y_pos);
-void get_status_pos_from_cell(int x_cell, int y_cell, int *x_pos, int *y_pos);
+bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, int x_from, int y_from,int *x_to, int *y_to, int dir);
+void get_pos_from_cell(int x_cell, int y_cell, int dir, int *x_pos, int *y_pos);
+void get_status_pos_from_cell(int x_cell, int y_cell, int dir, int *x_pos, int *y_pos,int x_map_center,int y_map_center);
 
+int translate_walls(int wall, int dir);
+void translate(int from_x, int from_y, int *to_x, int *to_y, int dir, int max_x, int max_y);
+void translate_pos(int from_x, int from_y, int *to_x, int *to_y, int dir, int max_x, int max_y);
 float scale_gyro(float g);
 float scale_acc(float g);

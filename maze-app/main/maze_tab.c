@@ -47,7 +47,7 @@ static float calib_a_uv[3];
 
 static int x_current_cell = 0;
 static int y_current_cell = 13;
-static uint current_dir = 2;
+static uint current_dir = NORTH_DIR;
 
 static bool redraw_dir = true;
 
@@ -131,23 +131,14 @@ void display_maze_tab(lv_obj_t *tv)
     lv_obj_set_size(z_led, 25, 25);
     lv_led_off(z_led);
 
-    int x_pos, y_pos;
-    for (int i = 0; i < 14; i++)
-    {
-        for (int j = 0; j < 14; j++)
-        {
-            int s = 0;
-            get_pos_from_cell(j, i, &x_pos, &y_pos);
-            draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j], STATUS_WIDTH, STATUS_LENGTH, WALL_WIDTH, WALL_LENGTH);
-        }
-    }
+    draw_maze(canvas, TEST_MAZE, 14, 14, NORTH_DIR,x_current_cell,y_current_cell);
 
     lv_obj_t *arrow_img = lv_img_create(test_tab, NULL);
     lv_img_set_src(arrow_img, &arrow_30x30);
     lv_obj_align(arrow_img, NULL, LV_ALIGN_IN_TOP_RIGHT, -15, 5);
     lv_img_set_angle(arrow_img, 900 * current_dir);
     int x_init_pos, y_init_pos;
-    get_status_pos_from_cell(x_current_cell, y_current_cell, &x_init_pos, &y_init_pos);
+    get_status_pos_from_cell(x_current_cell, y_current_cell, current_dir, &x_init_pos, &y_init_pos,x_current_cell,y_current_cell);
     draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
 
@@ -226,10 +217,15 @@ void maze_task(void *pvParameters)
             //ESP_LOGI(TAG, "new dir-%i", current_dir);
         }
 
+        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         if (redraw_dir)
         {
             lv_img_set_angle(arrow, 900 * current_dir);
             redraw_dir = false;
+            draw_maze(canvas, TEST_MAZE, 14, 14, current_dir,x_current_cell,y_current_cell);
+            int x_pos, y_pos;
+            get_status_pos_from_cell(x_current_cell, y_current_cell, current_dir , &x_pos, &y_pos,x_current_cell,y_current_cell);
+            draw_status(canvas, 5, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
         }
 
         bool moved = false;
@@ -237,7 +233,11 @@ void maze_task(void *pvParameters)
         if (step && y_conv >= 0) //forward step
         {
 
-            moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, current_dir);
+            //dir is map projected dir
+            int move_dir = current_dir;
+            if (current_dir == EAST_DIR)move_dir=WEST_DIR;
+            else if (current_dir == WEST_DIR)move_dir=EAST_DIR;
+            moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
             if (!moved)
                 ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
         }
@@ -251,23 +251,15 @@ void maze_task(void *pvParameters)
         }
         if (moved)
         {
+            int x_new_pos=0;
+            int y_new_pos=0;
+            ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
             last_move_ticks = ticks;
-            //ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
-            int x_old_pos, y_old_pos;
-            get_status_pos_from_cell(x_current_cell, y_current_cell, &x_old_pos, &y_old_pos);
-
-            int x_new_pos, y_new_pos;
-            get_status_pos_from_cell(x_new_cell, y_new_cell, &x_new_pos, &y_new_pos);
             x_current_cell = x_new_cell;
             y_current_cell = y_new_cell;
-
-            if ((x_new_pos < CANVAS_WIDTH) &&
-                (y_new_pos < CANVAS_HEIGHT))
-            {
-                draw_status(canvas, 0, x_old_pos, y_old_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
-                draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH);
-                //ESP_LOGI(TAG, "time-%ld, old pos x-%i y-%i, new pos x-%i y-%i", ticks, x_old_pos, y_old_pos, x_new_pos, y_new_pos);
-            }
+            draw_maze(canvas, TEST_MAZE, 14, 14, current_dir,x_current_cell,y_current_cell);
+            get_status_pos_from_cell(x_new_cell, y_new_cell, current_dir, &x_new_pos, &y_new_pos,x_new_cell,y_new_cell);
+            draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
         }
 
         int8_t op_x = 0;
@@ -276,9 +268,9 @@ void maze_task(void *pvParameters)
         if (op_x >= 0 && op_y >= 0 && (last_test_x != op_x || last_test_y != op_y))
         {
             int x_pos, y_pos;
-            get_status_pos_from_cell(last_test_x, last_test_y, &x_pos, &y_pos);
+            get_status_pos_from_cell(last_test_x, last_test_y, current_dir, &x_pos, &y_pos,x_current_cell,y_current_cell);
             draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
-            get_status_pos_from_cell(op_x, op_y, &x_pos, &y_pos);
+            get_status_pos_from_cell(op_x, op_y, current_dir, &x_pos, &y_pos,x_current_cell,y_current_cell);
             draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             last_test_x = op_x;
             last_test_y = op_y;
