@@ -1,6 +1,9 @@
 
 #include "float_buffer.h"
 #include "CircularBuffer.h"
+#include "math.h"
+
+#include "esp_log.h"
 
 
 typedef CircularBuffer<float, BUFSIZE> bufType;
@@ -28,6 +31,30 @@ void big_push(void *buf, float f)
     ((bigBufType*)buf)->push(f);
 }
 
+float stdev(void *buf){
+    float sum = 0.0, mean, SD = 0.0;
+    int i;
+    for (int i = 0; i < BUFSIZE; i++)
+    {
+        sum += (*(bufType*)buf)[i];
+    }
+    mean = sum / BUFSIZE;
+    for (int i = 0; i < BUFSIZE; i++)
+    {
+        SD += pow((*(bufType*)buf)[i] - mean, 2);
+    }
+    return sqrt(SD / BUFSIZE);
+}
+float sum_abs(void *buf)
+{
+    float res = 0.;
+
+    for (int i = 0; i < BUFSIZE; i++)
+    {
+        res += fabs((*(bufType*)buf)[i]);
+    }
+    return res;
+}
 float conv(void *buf, float *f, int coefsize)
 {
     float res = 0.;
@@ -62,4 +89,37 @@ float get_delta(void *buf)
     }
 
     return max - min;
+}
+
+void big_mk_copy(void *buf,float* out_buf,int size)
+{
+    bigBufType* cBuf =  (bigBufType*)buf;
+
+    for (int i=0;i<cBuf->size() && i < size;i++)
+    {
+        out_buf[i]=(*cBuf)[i];
+    }
+}
+
+void mk_copy(void *buf,float out_buf[BUFSIZE],int size)
+{
+    bufType* cBuf =  (bufType*)buf;
+
+    for (int i=0;i<cBuf->size() && i < size;i++)
+    {
+        out_buf[i]=(*cBuf)[i];
+    }
+}
+
+void dump(float **buf,int m )
+{
+    for (int i = 0;i<m;i++)
+    {
+        for (int j=0;j<BUFSIZE;j++)
+        {
+            ESP_LOGI("FLOATBUF","i:%d,j:%d,v:%f\n",i,j,buf[i][j]);
+        }
+
+    }
+
 }

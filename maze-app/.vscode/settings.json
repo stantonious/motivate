@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "motivate_math.h": "c"
+        "motivate_math.h": "c",
+        "param.h": "c",
+        "float_buffer.h": "c",
+        "mot-imu-tf.h": "c"
     }
 }

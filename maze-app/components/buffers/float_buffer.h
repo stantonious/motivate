@@ -16,11 +16,18 @@ extern "C"
   void big_push(void *buf, float f);
 
   float conv(void *buf, float *f, int coefsize);
+  float sum_abs(void *buf);
+  float stdev(void *buf);
 
   float get(void *buf,int idx);
   float big_get(void *buf,int idx);
 
   float get_delta(void *buf);
+
+  void mk_copy(void* buf,float out_buf[BUFSIZE],int size);
+  void big_mk_copy(void* buf,float* out_buf,int size);
+
+  void dump(float **buf,int m);
 #ifdef __cplusplus
 }
 #endif

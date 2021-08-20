@@ -18,11 +18,12 @@
 #include "core2forAWS.h"
 #include "game_tab.h"
 #include "maze_tab.h"
+#include "train_tab.h"
 #include "tilt_maze_tab.h"
 #include "button_handler.h"
 #include "app_wifi.h"
 #include "maze_client.h"
-#include "tfl-example.h"
+#include "mot-imu-tf.h"
 #include "mot_mqtt_client.h"
 
 static const char *TAG = "MAIN";
@@ -50,26 +51,16 @@ void app_main(void)
 
     Core2ForAWS_Init();
     Core2ForAWS_Display_SetBrightness(40); // Last since the display first needs time to finish initializing.
-    //init_tf();
 
+    //init_mot_imu();
     ui_start();
 
     int wifi_retries = 3;
     int connected = init_wifi();
     while (!connected && wifi_retries >= 0)
     {
-        wifi_retries -= 1;
 
         ESP_LOGI(TAG, "=====Unable to connect to WiFi...retrying=====");
-
-        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
-        static const char *btns[] = {"Close", ""};
-        lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
-        lv_msgbox_set_text(mbox1, "Wifi Failed");
-        lv_msgbox_add_btns(mbox1, btns);
-        lv_obj_set_width(mbox1, 200);
-        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
-        xSemaphoreGive(xGuiSemaphore);
         connected = init_wifi();
     }
 
@@ -82,11 +73,22 @@ void app_main(void)
         lv_obj_set_width(mbox1, 200);
         lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
         xSemaphoreGive(xGuiSemaphore);
-
+    }else{
+        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+        static const char *btns[] = {"Close", ""};
+        lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
+        lv_msgbox_set_text(mbox1, "Wifi Failed");
+        lv_msgbox_add_btns(mbox1, btns);
+        lv_obj_set_width(mbox1, 200);
+        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
+        xSemaphoreGive(xGuiSemaphore);
     }
+
 
     //TODO maze_client_init();
     mot_mqtt_client_init();
+    init_button_handlers();
+
 }
 
 static void ui_start(void)
@@ -102,11 +104,10 @@ static void ui_start(void)
 
     xSemaphoreGive(xGuiSemaphore);
 
+    display_train_tab(tab_view);
     display_game_tab(tab_view);
     display_maze_tab(tab_view);
-    display_tilt_maze_tab(tab_view);
 
-    init_button_handlers();
 }
 
 static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
@@ -118,7 +119,8 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         ESP_LOGI(TAG, "Current Active Tab: %s\n", tab_name);
 
         vTaskSuspend(MAZE_handle);
-        vTaskSuspend(TILT_MAZE_handle);
+        //vTaskSuspend(TILT_MAZE_handle);
+        vTaskSuspend(Train_handle);
 
         if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
         {
@@ -127,6 +129,10 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         else if (strcmp(tab_name, TILT_MAZE_TAB_NAME) == 0)
         {
             vTaskResume(TILT_MAZE_handle);
+        }
+        else if (strcmp(tab_name, TRAIN_TAB_NAME) == 0)
+        {
+            vTaskResume(Train_handle);
         }
     }
 }
