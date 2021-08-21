@@ -3,6 +3,7 @@
         "motivate_math.h": "c",
         "param.h": "c",
         "float_buffer.h": "c",
-        "mot-imu-tf.h": "c"
+        "mot-imu-tf.h": "c",
+        "*.tpp": "cpp"
     }
 }

@@ -38,6 +38,9 @@ static int8_t op_y = -1;
 static esp_mqtt_client_handle_t glb_client;
 
 static const char *CLIENT_ID = "basicPubSub";
+#define JSON_BUFSIZE 1024*2
+static const char* json_buf=NULL;
+
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
@@ -126,6 +129,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 void mot_mqtt_client_init(void)
 {
+    json_buf = malloc(JSON_BUFSIZE);
     esp_err_t esp_ret = ESP_FAIL;
 
     esp_ret = esp_tls_set_global_ca_store(root_CA_crt_start, root_CA_crt_length + 1);
@@ -191,6 +195,8 @@ void fdump(float **buf,int m )
 }
 void send_sample(char *topic, float **a_samples, float **g_samples, int a_size, int g_size, int type, unsigned time)
 {
+    fdump(a_samples,3);
+    fdump(g_samples,3);
     ESP_LOGI(TAG, "S1");
     cJSON *sample = cJSON_CreateObject();
     check_null(sample,__LINE__);
@@ -267,13 +273,12 @@ void send_sample(char *topic, float **a_samples, float **g_samples, int a_size, 
     }
     */
 
-    char *out = cJSON_Print(sample);
-    //ESP_LOGI(TAG, "before send %s: %p", out, glb_client);
-    int pub_ret = esp_mqtt_client_publish(glb_client, "topic_2", out, 0, 1, 0);
+    cJSON_PrintPreallocated(sample,json_buf,JSON_BUFSIZE,false);
+    ESP_LOGI(TAG, "before send %s: %p", json_buf, glb_client);
+    int pub_ret = esp_mqtt_client_publish(glb_client, "topic_2", json_buf, 0, 1, 0);
     //ESP_LOGI(TAG, "Publishing of =%s returned=%d", out, pub_ret);
 
     //int pub_ret = esp_mqtt_client_publish(glb_client, "topic_2", "{'a':42}", 0, 1, 0);
 
     cJSON_Delete(sample);
-    free(out);
 }

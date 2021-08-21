@@ -18,6 +18,7 @@
 
 static const char *TAG = "MOT_IMU_TFL_HANDLER";
 
+/*
 static float test3[10][6] = {
 
     {0.0185546875, 0.173828125, 0.07470703125, 3.662109375, -50.6591796875, -112.4267578125},
@@ -57,6 +58,7 @@ static float test2[10][6] = {
     {0.2080078125, 0.100830078125, 0.060791015625, -0.8544921875, 18.61572265625, 95.64208984375},
     {0.12646484375, 0.085693359375, 0.063720703125, -4.7607421875, 14.892578125, 108.58154296875},
 };
+*/
 
 static TfLiteTensor *input = nullptr;
 static TfLiteTensor *output = nullptr;
@@ -74,16 +76,16 @@ namespace
   // Create an area of memory to use for input, output, and intermediate arrays.
   // Minimum arena size, at the time of writing. After allocating tensors
   // you can retrieve this value by invoking interpreter.arena_used_bytes().
-  //const int kModelArenaSize = 27208;
-  const int kModelArenaSize = 5000;
+  const int kModelArenaSize = 27208;
   // Extra headroom for model + alignment + future interpreter changes.
   const int kExtraArenaSize = 560 + 16 + 100;
   const int kTensorArenaSize = kModelArenaSize + kExtraArenaSize;
-  uint8_t tensor_arena[kTensorArenaSize];
+  static uint8_t tensor_arena[3124];
 } // namespace
 
 void init_mot_imu(void)
 {
+  ESP_LOGI(TAG,"INITING Model");
   // Set up logging. Google style is to avoid globals or statics because of
   // lifetime uncertainty, but since this has a trivial destructor it's okay.
   // NOLINTNEXTLINE(runtime-global-variables)
@@ -104,15 +106,24 @@ void init_mot_imu(void)
 
   // This pulls in all the operation implementations we need.
   // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::AllOpsResolver resolver;
+  //static tflite::AllOpsResolver resolver;
+  static tflite::MicroMutableOpResolver<5> resolver;
+  resolver.AddConv2D();
+  resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
+             tflite::ops::micro::Register_MAX_POOL_2D());
+  resolver.AddFullyConnected();
+  resolver.AddSoftmax();
+  resolver.AddReshape();
 
   // Build an interpreter to run the model with.
   static tflite::MicroInterpreter static_interpreter(
       model, resolver, tensor_arena, kTensorArenaSize, error_reporter);
   interpreter = &static_interpreter;
 
+
   // Allocate memory from the tensor_arena for the model's tensors.
   TfLiteStatus allocate_status = interpreter->AllocateTensors();
+  ESP_LOGI(TAG,"Arena size %d",static_interpreter.arena_used_bytes());
   if (allocate_status != kTfLiteOk)
   {
     TF_LITE_REPORT_ERROR(error_reporter, "AllocateTensors() failed");
@@ -120,8 +131,9 @@ void init_mot_imu(void)
   }
   input = interpreter->input(0);
   output = interpreter->output(0);
-
-  xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096, NULL, 1, &mot_imu_handle, 1);
+  /*
+  */
+  //xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096, NULL, 1, &mot_imu_handle, 0);
 }
 
 float get_max(float *f, int n)
@@ -184,13 +196,16 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[3] = {
+  float dequant[6] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[3] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[4] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[5] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 3);
+  float max_conf = get_max(dequant, 6);
 
   if (max_conf < thresh)
   {
@@ -201,7 +216,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 3);
+  return get_max_idx(dequant, 6);
 }
 
 int buffer_infer(void *ax,
@@ -253,13 +268,16 @@ int buffer_infer(void *ax,
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[3] = {
+  float dequant[6] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[3] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[4] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[5] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 3);
+  float max_conf = get_max(dequant, 6);
 
   if (max_conf < thresh)
   {
@@ -270,15 +288,5 @@ int buffer_infer(void *ax,
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 3);
-}
-
-void mot_imu_task(void *pvParameters)
-{
-
-  // Output the results. A custom HandleOutput function can be implemented
-  // for each supported hardware target.
-  //HandleOutput(error_reporter, x_val, y_val);
-  for (;;)
-    vTaskDelay(pdMS_TO_TICKS(1000));
+  return get_max_idx(dequant, 6);
 }
