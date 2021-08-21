@@ -76,11 +76,11 @@ namespace
   // Create an area of memory to use for input, output, and intermediate arrays.
   // Minimum arena size, at the time of writing. After allocating tensors
   // you can retrieve this value by invoking interpreter.arena_used_bytes().
-  const int kModelArenaSize = 27208;
+  const int kModelArenaSize = 3120;
   // Extra headroom for model + alignment + future interpreter changes.
   const int kExtraArenaSize = 560 + 16 + 100;
   const int kTensorArenaSize = kModelArenaSize + kExtraArenaSize;
-  static uint8_t tensor_arena[3124];
+  static uint8_t tensor_arena[kTensorArenaSize];
 } // namespace
 
 void init_mot_imu(void)

@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
+#include "imu_task.h"
 #include "esp_log.h"
 
 #include "core2forAWS.h"
@@ -35,7 +36,6 @@ static const char *TAG = PRED_TAB_NAME;
 
 static float a_std_thresh = .20;
 static float g_std_thresh = 80;
-
 
 bool is_at_rest(void *ax, void *ay, void *az, void *gx, void *gy, void *gz)
 {
@@ -65,7 +65,7 @@ void display_pred_tab(lv_obj_t *tv)
     lv_label_set_text(l_lbl, "Unknown ");
     lv_obj_align(l_lbl, NULL, LV_ALIGN_CENTER, -70, -75);
 
-    xSemaphoreGive(xGuiSemaphore );
+    xSemaphoreGive(xGuiSemaphore);
     static lv_obj_t *parms[6];
     parms[0] = l_lbl;
 
@@ -74,30 +74,11 @@ void display_pred_tab(lv_obj_t *tv)
 
 void pred_task(void *pvParameters)
 {
-    init_mot_imu();
-
-    float **abuf = (float **)malloc(3 * sizeof(float *));
-    for (int i = 0; i < 3; i++)
-        abuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
-    float **gbuf = (float **)malloc(3 * sizeof(float *));
-    for (int i = 0; i < 3; i++)
-        gbuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
-
-    void *ax_buf_train = get_buffer();
-    void *ay_buf_train = get_buffer();
-    void *az_buf_train = get_buffer();
-
-    void *gz_buf_train = get_buffer();
-    void *gx_buf_train = get_buffer();
-    void *gy_buf_train = get_buffer();
-
     lv_obj_t **parms = (lv_obj_t **)pvParameters;
     lv_obj_t *l_lbl = (lv_obj_t *)parms[0];
 
     vTaskSuspend(NULL);
 
-    float gx, gy, gz;
-    float ax, ay, az;
     unsigned now = xTaskGetTickCount();
     unsigned update_delta = 0;
     unsigned last_update = 0; //xTaskGetTickCount();
@@ -106,45 +87,23 @@ void pred_task(void *pvParameters)
         now = xTaskGetTickCount();
         update_delta = now - last_update;
 
-        MPU6886_GetAccelData(&ax, &ay, &az);
-        MPU6886_GetGyroData(&gx, &gy, &gz);
-
-        push(ax_buf_train, ax);
-        push(ay_buf_train, ay);
-        push(az_buf_train, az);
-
-        push(gx_buf_train, gx);
-        push(gy_buf_train, gy);
-        push(gz_buf_train, gz);
-
-        //ESP_LOGI(TAG, "acc x:%.6f y:%.6f z:%.6f", ax,ay,az);
-        //ESP_LOGI(TAG, "gyr x:%.6f y:%.6f z:%.6f", gx,gy,gz);
-        //ESP_LOGI(TAG, "acc abs x:%.6f y:%.6f z:%.6f", stdev(ax_buf),stdev(ay_buf),stdev(az_buf_train));
-        //ESP_LOGI(TAG, "gyr abs x:%.6f y:%.6f z:%.6f", stdev(gx_buf),stdev(gy_buf),stdev(gz_buf));
-
         //ESP_LOGI(TAG, "ud:%ld now: %ld last_update :%ld is_at_rest:%d", update_delta,now,last_update,is_at_rest());
-        if (update_delta > UPDATE_THRESH && !is_at_rest(ax_buf_train, ay_buf_train, az_buf_train, gx_buf_train, gy_buf_train, gz_buf_train))
+        xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+        bool resting = is_at_rest(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
+        xSemaphoreGive(xImuSemaphore);
+        if (update_delta > UPDATE_THRESH && !resting)
         {
-            last_update = now;
-            ESP_LOGI(TAG, "pred!");
-            //last_update = xTaskGetTickCount();
-
-            //mk_copy(ax_buf_train, abuf[0], BUFSIZE);
-            //mk_copy(ay_buf_train, abuf[1], BUFSIZE);
-            //mk_copy(az_buf_train, abuf[2], BUFSIZE);
-            //mk_copy(gx_buf_train, gbuf[0], BUFSIZE);
-            //mk_copy(gy_buf_train, gbuf[1], BUFSIZE);
-            //mk_copy(gz_buf_train, gbuf[2], BUFSIZE);
 
             ESP_LOGI(TAG, "infer ");
+            xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
             int inf = buffer_infer(
-                ax_buf_train,
-                ay_buf_train,
-                az_buf_train,
-                gx_buf_train,
-                gy_buf_train,
-                gz_buf_train);
-
+                ax_buf,
+                ay_buf,
+                az_buf,
+                gx_buf,
+                gy_buf,
+                gz_buf);
+            xSemaphoreGive(xImuSemaphore);
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
@@ -175,5 +134,5 @@ void pred_task(void *pvParameters)
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-vTaskDelete(NULL); // Should never get to here...
+    vTaskDelete(NULL); // Should never get to here...
 }

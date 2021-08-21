@@ -17,11 +17,12 @@
 
 #include "train_tab.h"
 #include "float_buffer.h"
+#include "imu_task.h"
 
 #include "mot_mqtt_client.h"
 #include "mot-imu-tf.h"
 
-#define UPDATE_THRESH 70
+#define UPDATE_THRESH 30
 
 #define REST_LABEL 0
 #define FORWARD_LABEL 1
@@ -151,14 +152,6 @@ void train_task(void *pvParameters)
     for (int i = 0; i < 3; i++)
         gbuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
 
-    void *ax_buf_train = get_buffer();
-    void *ay_buf_train = get_buffer();
-    void *az_buf_train = get_buffer();
-
-    void *gz_buf_train = get_buffer();
-    void *gx_buf_train = get_buffer();
-    void *gy_buf_train = get_buffer();
-
     lv_obj_t **parms = (lv_obj_t **)pvParameters;
     lv_obj_t *l_led = (lv_obj_t *)parms[0];
     lv_obj_t *r_led = (lv_obj_t *)parms[1];
@@ -170,8 +163,6 @@ void train_task(void *pvParameters)
 
     vTaskSuspend(NULL);
 
-    float gx, gy, gz;
-    float ax, ay, az;
     unsigned now = xTaskGetTickCount();
     unsigned update_delta = 0;
     unsigned last_update = 0; //xTaskGetTickCount();
@@ -180,24 +171,11 @@ void train_task(void *pvParameters)
         now = xTaskGetTickCount();
         update_delta = now - last_update;
 
-        MPU6886_GetAccelData(&ax, &ay, &az);
-        MPU6886_GetGyroData(&gx, &gy, &gz);
-
-        push(ax_buf_train, ax);
-        push(ay_buf_train, ay);
-        push(az_buf_train, az);
-
-        push(gx_buf_train, gx);
-        push(gy_buf_train, gy);
-        push(gz_buf_train, gz);
-
-        //ESP_LOGI(TAG, "acc x:%.6f y:%.6f z:%.6f", ax,ay,az);
-        //ESP_LOGI(TAG, "gyr x:%.6f y:%.6f z:%.6f", gx,gy,gz);
-        //ESP_LOGI(TAG, "acc abs x:%.6f y:%.6f z:%.6f", stdev(ax_buf),stdev(ay_buf),stdev(az_buf_train));
-        //ESP_LOGI(TAG, "gyr abs x:%.6f y:%.6f z:%.6f", stdev(gx_buf),stdev(gy_buf),stdev(gz_buf));
-
         //ESP_LOGI(TAG, "ud:%ld now: %ld last_update :%ld is_at_rest:%d", update_delta,now,last_update,is_at_rest());
-        if (update_delta > UPDATE_THRESH && !is_at_rest_pred(ax_buf_train, ay_buf_train, az_buf_train, gx_buf_train, gy_buf_train, gz_buf_train))
+         xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+        bool resting = is_at_rest_pred(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
+        xSemaphoreGive(xImuSemaphore);
+        if (update_delta > UPDATE_THRESH && !resting)
         {
             ESP_LOGI(TAG, "record!");
             //last_update = xTaskGetTickCount();
@@ -207,13 +185,14 @@ void train_task(void *pvParameters)
                 ESP_LOGI(TAG, "rec samp");
                 unsigned long t = time(NULL);
 
-                mk_copy(ax_buf_train, abuf[0], BUFSIZE);
-                mk_copy(ay_buf_train, abuf[1], BUFSIZE);
-                mk_copy(az_buf_train, abuf[2], BUFSIZE);
-                mk_copy(gx_buf_train, gbuf[0], BUFSIZE);
-                mk_copy(gy_buf_train, gbuf[1], BUFSIZE);
-                mk_copy(gz_buf_train, gbuf[2], BUFSIZE);
-
+                xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+                mk_copy(ax_buf, abuf[0], BUFSIZE);
+                mk_copy(ay_buf, abuf[1], BUFSIZE);
+                mk_copy(az_buf, abuf[2], BUFSIZE);
+                mk_copy(gx_buf, gbuf[0], BUFSIZE);
+                mk_copy(gy_buf, gbuf[1], BUFSIZE);
+                mk_copy(gz_buf, gbuf[2], BUFSIZE);
+                xSemaphoreGive(xImuSemaphore);
                 ESP_LOGI(TAG, "send sample");
                 send_sample("topic_2", abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
                 ESP_LOGI(TAG, "send sample done");

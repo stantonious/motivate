@@ -26,6 +26,7 @@
 #include "maze_client.h"
 #include "mot-imu-tf.h"
 #include "mot_mqtt_client.h"
+#include "imu_task.h"
 
 static const char *TAG = "MAIN";
 
@@ -60,13 +61,11 @@ void app_main(void)
     int connected = init_wifi();
     while (!connected && wifi_retries >= 0)
     {
-
         ESP_LOGI(TAG, "=====Unable to connect to WiFi...retrying=====");
         connected = init_wifi();
     }
     //Core2ForAWS_Sk6812_SetSideColor(SK6812_SIDE_LEFT, (current_red << 16) + (current_green << 8) + (current_blue));
     if (connected == true){
-        /*
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         static const char *btns[] = {"Close", ""};
         lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
@@ -75,9 +74,7 @@ void app_main(void)
         lv_obj_set_width(mbox1, 200);
         lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
         xSemaphoreGive(xGuiSemaphore);
-        */
     }else{
-        /*
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         static const char *btns[] = {"Close", ""};
         lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
@@ -86,11 +83,11 @@ void app_main(void)
         lv_obj_set_width(mbox1, 200);
         lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
         xSemaphoreGive(xGuiSemaphore);
-        */
     }
 
 
-    //init_mot_imu();
+    init_imu();
+    init_mot_imu();
     //TODO maze_client_init();
     mot_mqtt_client_init();
     init_button_handlers();
@@ -111,8 +108,8 @@ static void ui_start(void)
     xSemaphoreGive(xGuiSemaphore);
 
     display_game_tab(tab_view);
-    display_train_tab(tab_view);
     display_pred_tab(tab_view);
+    display_train_tab(tab_view);
     //display_maze_tab(tab_view);
 
 }
