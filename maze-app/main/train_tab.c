@@ -175,10 +175,31 @@ void train_task(void *pvParameters)
          xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
         bool resting = is_at_rest_pred(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
         xSemaphoreGive(xImuSemaphore);
+        if (current_label == REST_LABEL && update_delta > UPDATE_THRESH)
+        {
+            last_update = xTaskGetTickCount();
+            if (on_off)
+            {
+                ESP_LOGI(TAG, "rec rest samp");
+                unsigned long t = time(NULL);
+
+                xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+                mk_copy(ax_buf, abuf[0], BUFSIZE);
+                mk_copy(ay_buf, abuf[1], BUFSIZE);
+                mk_copy(az_buf, abuf[2], BUFSIZE);
+                mk_copy(gx_buf, gbuf[0], BUFSIZE);
+                mk_copy(gy_buf, gbuf[1], BUFSIZE);
+                mk_copy(gz_buf, gbuf[2], BUFSIZE);
+                xSemaphoreGive(xImuSemaphore);
+                ESP_LOGI(TAG, "send sample");
+                send_sample("topic_2", abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
+                ESP_LOGI(TAG, "send sample done");
+            }
+        }
         if (update_delta > UPDATE_THRESH && !resting)
         {
             ESP_LOGI(TAG, "record!");
-            //last_update = xTaskGetTickCount();
+            last_update = xTaskGetTickCount();
             if (on_off)
             {
 

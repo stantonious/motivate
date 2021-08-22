@@ -21,7 +21,7 @@
 
 #include "mot-imu-tf.h"
 
-#define UPDATE_THRESH 70
+#define UPDATE_THRESH 30
 
 // -1 to convert to 0 based out of the model
 #define REST_LABEL 0 - 1
@@ -89,11 +89,13 @@ void pred_task(void *pvParameters)
 
         //ESP_LOGI(TAG, "ud:%ld now: %ld last_update :%ld is_at_rest:%d", update_delta,now,last_update,is_at_rest());
         xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-        bool resting = is_at_rest(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
+        //bool resting = is_at_rest(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
         xSemaphoreGive(xImuSemaphore);
-        if (update_delta > UPDATE_THRESH && !resting)
+        //if (update_delta > UPDATE_THRESH && !resting)
+        if (update_delta > UPDATE_THRESH)
         {
 
+            last_update = xTaskGetTickCount();
             ESP_LOGI(TAG, "infer ");
             xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
             int inf = buffer_infer(
