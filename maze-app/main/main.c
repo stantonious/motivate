@@ -110,7 +110,7 @@ static void ui_start(void)
     display_game_tab(tab_view);
     display_pred_tab(tab_view);
     display_train_tab(tab_view);
-    //display_maze_tab(tab_view);
+    display_maze_tab(tab_view);
 
 }
 
@@ -122,7 +122,7 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         const char *tab_name = ext->tab_name_ptr[lv_tabview_get_tab_act(tab_view)];
         ESP_LOGI(TAG, "Current Active Tab: %s\n", tab_name);
 
-        //vTaskSuspend(MAZE_handle);
+        vTaskSuspend(MAZE_handle);
         //vTaskSuspend(TILT_MAZE_handle);
         vTaskSuspend(Train_handle);
         vTaskSuspend(Pred_handle);

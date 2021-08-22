@@ -18,48 +18,6 @@
 
 static const char *TAG = "MOT_IMU_TFL_HANDLER";
 
-/*
-static float test3[10][6] = {
-
-    {0.0185546875, 0.173828125, 0.07470703125, 3.662109375, -50.6591796875, -112.4267578125},
-    {-0.23095703125, 0.202880859375, 0.198486328125, -4.39453125, -41.44287109375, -78.18603515625},
-    {-0.305908203125, 0.198486328125, 0.041015625, -9.21630859375, -15.07568359375, -37.109375},
-    {-0.15673828125, 0.2685546875, -0.041748046875, -18.310546875, -1.953125, -21.728515625},
-    {-0.02392578125, 0.2744140625, 0.0712890625, -10.68115234375, -5.37109375, -2.9296875},
-    {0.049072265625, 0.242919921875, 0.09326171875, -14.34326171875, -8.544921875, -9.46044921875},
-    {0.07470703125, 0.3134765625, 0.01416015625, -10.92529296875, 0.67138671875, -13.48876953125},
-    {0.213134765625, 0.263671875, 0.059326171875, -5.31005859375, -15.56396484375, -43.3349609375},
-    {0.2509765625, 0.155517578125, 0.09130859375, -12.87841796875, -31.31103515625, -93.8720703125},
-    {0.198486328125, 0.0986328125, 0.147216796875, -10.07080078125, -67.07763671875, -137.5732421875},
-};
-static float test1[10][6] = {
-
-    {0.037353515625, 0.326416015625, -0.00634765625, -10.55908203125, -4.2724609375, -4.8828125},
-    {0.020263671875, 0.325439453125, -0.006103515625, -12.26806640625, -2.50244140625, -1.8310546875},
-    {0.008544921875, 0.33154296875, -0.0146484375, -15.31982421875, -8.11767578125, 1.89208984375},
-    {-0.01220703125, 0.37646484375, -0.048583984375, -19.6533203125, -3.7841796875, 2.13623046875},
-    {0.004638671875, 0.38330078125, 0.009033203125, -25.45166015625, -3.90625, -4.08935546875},
-    {-0.006103515625, 0.445556640625, -0.0205078125, -15.44189453125, 1.5869140625, 3.84521484375},
-    {-0.027587890625, 0.388427734375, 0.0537109375, -6.7138671875, -12.26806640625, 6.8359375},
-    {-0.01708984375, 0.37744140625, -0.023681640625, -8.1787109375, -14.46533203125, -6.04248046875},
-    {0.07958984375, 0.329345703125, 0.358642578125, -6.103515625, -0.6103515625, -8.72802734375},
-    {0.102294921875, 0.156982421875, 0.0546875, -1.46484375, -24.35302734375, -20.751953125},
-};
-
-static float test2[10][6] = {
-    {0.0185546875, 0.14453125, 0.085205078125, -12.75634765625, -3.173828125, 0},
-    {.00244140625, 0.142578125, 0.0810546875, -9.94873046875, -6.4697265625, 0},
-    {.000732421875, 0.126708984375, 0.011474609375, -5.859375, 1.03759765625, -4.638671875},
-    {.020751953125, 0.123291015625, 0.037353515625, -9.58251953125, -5.67626953125, -3.72314453125},
-    {.0244140625, 0.133544921875, 0.06982421875, -5.9814453125, -3.7841796875, -2.13623046875},
-    {0.013427734375, 0.13916015625, 0.08203125, -8.544921875, -5.79833984375, 1.46484375},
-    {0.077880859375, 0.13623046875, 0.10302734375, -10.07080078125, -7.38525390625, 14.83154296875},
-    {0.19140625, 0.13232421875, 0.104248046875, -0.91552734375, -1.64794921875, 49.49951171875},
-    {0.2080078125, 0.100830078125, 0.060791015625, -0.8544921875, 18.61572265625, 95.64208984375},
-    {0.12646484375, 0.085693359375, 0.063720703125, -4.7607421875, 14.892578125, 108.58154296875},
-};
-*/
-
 static TfLiteTensor *input = nullptr;
 static TfLiteTensor *output = nullptr;
 static const int g_min = -90;
@@ -196,16 +154,17 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[6] = {
+  float dequant[7] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
       (output->data.int8[3] - output->params.zero_point) * output->params.scale,
       (output->data.int8[4] - output->params.zero_point) * output->params.scale,
       (output->data.int8[5] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[6] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 6);
+  float max_conf = get_max(dequant, 7);
 
   if (max_conf < thresh)
   {
@@ -216,7 +175,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 6);
+  return get_max_idx(dequant, 7);
 }
 
 int buffer_infer(void *ax,
@@ -268,16 +227,17 @@ int buffer_infer(void *ax,
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[6] = {
+  float dequant[7] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
       (output->data.int8[3] - output->params.zero_point) * output->params.scale,
       (output->data.int8[4] - output->params.zero_point) * output->params.scale,
       (output->data.int8[5] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[6] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 6);
+  float max_conf = get_max(dequant, 7);
 
   if (max_conf < thresh)
   {
@@ -288,5 +248,5 @@ int buffer_infer(void *ax,
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 6);
+  return get_max_idx(dequant, 7);
 }

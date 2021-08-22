@@ -24,18 +24,10 @@
 
 #define UPDATE_THRESH 30
 
-#define REST_LABEL 0
-#define FORWARD_LABEL 1
-#define BACKWARD_LABEL 2
-#define LEFT_LABEL 3
-#define RIGHT_LABEL 4
-#define UP_LABEL 5
-#define DOWN_LABEL 6
-
 static const char *TAG = TRAIN_TAB_NAME;
 
 static int current_label = 0;
-static bool on_off = false;
+static bool train_on_off = false;
 
 void record_sample(char *topic, int type)
 {
@@ -178,7 +170,7 @@ void train_task(void *pvParameters)
         if (current_label == REST_LABEL && update_delta > UPDATE_THRESH)
         {
             last_update = xTaskGetTickCount();
-            if (on_off)
+            if (train_on_off == true)
             {
                 ESP_LOGI(TAG, "rec rest samp");
                 unsigned long t = time(NULL);
@@ -200,7 +192,7 @@ void train_task(void *pvParameters)
         {
             ESP_LOGI(TAG, "record!");
             last_update = xTaskGetTickCount();
-            if (on_off)
+            if (train_on_off == true)
             {
 
                 ESP_LOGI(TAG, "rec samp");
@@ -245,7 +237,7 @@ void train_task(void *pvParameters)
         else
             lv_led_off(b_led);
 
-        if (on_off == true)
+        if (train_on_off == true)
             lv_led_on(o_led);
         else
             lv_led_off(o_led);
@@ -262,9 +254,9 @@ void toggle_train_class(void)
 }
 void toggle_train(void)
 {
-    if (on_off == true)
-        on_off = false;
+    if (train_on_off == true)
+        train_on_off = false;
     else
-        on_off = true;
-    ESP_LOGI(TAG, "toggling on off :%d", on_off);
+        train_on_off = true;
+    ESP_LOGI(TAG, "toggling on off :%d", train_on_off);
 }

@@ -14,6 +14,7 @@
 
 #include "core2forAWS.h"
 
+#include "imu_task.h"
 #include "arrow-img-30x30.h"
 #include "motivate_math.h"
 #include "maze_tab.h"
@@ -32,11 +33,7 @@
 #define MINI_PLOT_HEIGHT 70
 #define MINI_PLOT_NUM 20
 
-#define MOVE_THRESH 30
-#define TURN_THRESH 60
-#define STEP_THRESH .5
-#define STEP_DELTA_Z .2
-#define STEP_DELTA_Y .15
+#define MOVE_THRESH 50
 
 static lv_color_t *cbuf;
 static lv_color_t *miniplotbuf;
@@ -56,20 +53,7 @@ static uint current_dir = NORTH_DIR;
 
 static bool redraw_dir = true;
 
-static bool record_left = false;
-static bool record_right = false;
-static bool record_forward = false;
-
 static long last_move_ticks = 0;
-static long last_turn_ticks = 0;
-
-static void *ax_buf;
-static void *ay_buf;
-static void *az_buf;
-
-static void *gx_buf;
-static void *gy_buf;
-static void *gz_buf;
 
 static int8_t last_test_x = -1;
 static int8_t last_test_y = -1;
@@ -100,13 +84,6 @@ void display_maze_tab(lv_obj_t *tv)
     gbuf = (float **)malloc(3 * sizeof(float *));
     for (int i = 0; i < 3; i++)
         gbuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
-    ax_buf = get_buffer();
-    ay_buf = get_buffer();
-    az_buf = get_buffer();
-
-    gx_buf = get_buffer();
-    gy_buf = get_buffer();
-    gz_buf = get_buffer();
 
     down_recal(); //initial cal
 
@@ -134,13 +111,6 @@ void display_maze_tab(lv_obj_t *tv)
     lv_obj_align(gyrominiplotcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15 - MINI_PLOT_HEIGHT - 2);
     lv_canvas_fill_bg(gyrominiplotcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
-    //leds
-    lv_obj_t *r_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(r_led, NULL, LV_ALIGN_IN_RIGHT_MID, -45, -50);
-    lv_obj_set_size(r_led, 25, 25);
-    lv_led_off(r_led);
-    //ESP_LOGI(TAG, "after led");
-
     draw_maze(canvas, TEST_MAZE, 14, 14, NORTH_DIR, x_current_cell, y_current_cell);
 
     lv_obj_t *arrow_img = lv_img_create(test_tab, NULL);
@@ -157,7 +127,6 @@ void display_maze_tab(lv_obj_t *tv)
     parms[1] = arrow_img;
     parms[2] = miniplotcanvas;
     parms[3] = gyrominiplotcanvas;
-    parms[4] = r_led;
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, parms, 1, &MAZE_handle, 1);
 }
 
@@ -171,65 +140,70 @@ void maze_task(void *pvParameters)
     lv_obj_t *arrow = (lv_obj_t *)parms[1];
     lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[2];
     lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[3];
-    lv_obj_t *r_led = (lv_obj_t *)parms[4];
 
     vTaskSuspend(NULL);
 
-    int cnt = 0;
     for (;;)
     {
-        cnt++;
         long ticks = xTaskGetTickCount();
-        float gx, gy, gz;
-        float ax, ay, az;
+        long update_delta = ticks - last_move_ticks;
+        bool moved = false;
+        int y_new_cell, x_new_cell;
 
-        MPU6886_GetAccelData(&ax, &ay, &az);
-        MPU6886_GetGyroData(&gx, &gy, &gz);
-
-        // Substract out G
-        az -= 1;
-
-        //ESP_LOGI(TAG, "acc x:%.6f y:%.6f z:%.6f", ax,ay,az);
-        push(ax_buf, ax);
-        push(ay_buf, ay);
-        push(az_buf, az);
-
-        push(gx_buf, gx);
-        push(gy_buf, gy);
-        push(gz_buf, gz);
-
-        float y_delta = get_delta(ay_buf);
-        float z_delta = get_delta(az_buf);
-
-        
-
-        //TODO AVOID COPY!!!  Use Circ Buff
-        //mk_copy(ax_buf, abuf[0], BUFSIZE);
-        //mk_copy(ay_buf, abuf[1], BUFSIZE);
-        //mk_copy(az_buf, abuf[2], BUFSIZE);
-        //mk_copy(gx_buf, gbuf[0], BUFSIZE);
-        //mk_copy(gy_buf, gbuf[1], BUFSIZE);
-        //mk_copy(gz_buf, gbuf[2], BUFSIZE);
-        //int inf = infer(abuf,gbuf,BUFSIZE,BUFSIZE); 
-        int inf = buffer_infer(ax_buf,ay_buf,az_buf,gx_buf,gy_buf,gz_buf); 
-        
-        if (inf == 3&&
-            ticks - last_turn_ticks > TURN_THRESH)
+        if (update_delta > MOVE_THRESH)
         {
-            //ESP_LOGI(TAG, "right turn");
-            current_dir = (current_dir + 1) % 4;
-            last_turn_ticks = ticks;
-            redraw_dir = true;
-            //ESP_LOGI(TAG, "new dir-%i", current_dir);
-        }
-        else if (inf == 2 &&
-                 ticks - last_turn_ticks > TURN_THRESH)
-        {
-            //ESP_LOGI(TAG, "left turn");
-            current_dir = (current_dir - 1) % 4;
-            last_turn_ticks = ticks;
-            redraw_dir = true;
-            //ESP_LOGI(TAG, "new dir-%i", current_dir);
+            last_move_ticks = ticks;
+
+            xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+
+            int inf = buffer_infer(
+                ax_buf,
+                ay_buf,
+                az_buf,
+                gx_buf,
+                gy_buf,
+                gz_buf);
+            xSemaphoreGive(xImuSemaphore);
+
+            switch (inf)
+            {
+            case FORWARD_LABEL :
+                ESP_LOGI(TAG, "Moving %d",inf);
+                int move_dir = current_dir;
+                if (current_dir == EAST_DIR)
+                    move_dir = WEST_DIR;
+                else if (current_dir == WEST_DIR)
+                    move_dir = EAST_DIR;
+                moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                if (!moved)
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
+                break;
+            case BACKWARD_LABEL:
+                ESP_LOGI(TAG, "Moving %d",inf);
+                int back_dir = (current_dir - 2) % 4;
+                moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, back_dir);
+                if (!moved)
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
+                break;
+            case LEFT_LABEL:
+                ESP_LOGI(TAG, "Moving %d",inf);
+                current_dir = (current_dir + 1) % 4;
+                ESP_LOGI(TAG, "new current dir  %d",current_dir);
+                redraw_dir = true;
+                break;
+            case RIGHT_LABEL:
+                ESP_LOGI(TAG, "Moving %d",inf);
+                current_dir = (current_dir - 1) % 4;
+                ESP_LOGI(TAG, "new current dir  %d",current_dir);
+                redraw_dir = true;
+                break;
+            case UP_LABEL:
+                ESP_LOGI(TAG, "Moving %d",inf);
+                break;
+            case DOWN_LABEL:
+                ESP_LOGI(TAG, "Moving %d",inf);
+                break;
+            }
         }
 
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
@@ -241,43 +215,8 @@ void maze_task(void *pvParameters)
             int x_pos, y_pos;
             get_status_pos_from_cell(x_current_cell, y_current_cell, current_dir, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 5, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
-
-            if (record_left)
-            {
-                ESP_LOGI(TAG, "Rec Left");
-                ESP_LOGI(TAG, "Done Rec Left");
-            }
-            if (record_right)
-            {
-            }
         }
 
-        bool moved = false;
-        int y_new_cell, x_new_cell;
-        if (inf == 0) //forward step
-        {
-
-            //dir is map projected dir
-            int move_dir = current_dir;
-            if (current_dir == EAST_DIR)
-                move_dir = WEST_DIR;
-            else if (current_dir == WEST_DIR)
-                move_dir = EAST_DIR;
-            moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
-            if (!moved)
-                ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
-            if (record_forward)
-            {
-            }
-        }
-        //TODO else if (step && y_conv < 0) //backward step
-        else if (false) //backward step
-        {
-            int back_dir = (current_dir - 2) % 4;
-            moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, back_dir);
-            if (!moved)
-                ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
-        }
         if (moved)
         {
             int x_new_pos = 0;
@@ -307,10 +246,6 @@ void maze_task(void *pvParameters)
         draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
         draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
 
-        if (record_forward || record_left || record_right)
-            lv_led_on(r_led);
-        else
-            lv_led_off(r_led);
         xSemaphoreGive(xGuiSemaphore);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -331,22 +266,4 @@ void reset_north(void)
     //ESP_LOGI(TAG, "Resetting North");
     current_dir = NORTH_DIR;
     redraw_dir = true;
-}
-void toggle_left_record(void)
-{
-    record_left = !record_left;
-    record_right = false;
-    record_forward = false;
-}
-void toggle_right_record(void)
-{
-    record_right = !record_right;
-    record_left = false;
-    record_forward = false;
-}
-void toggle_foward_record(void)
-{
-    record_forward = !record_forward;
-    record_right = false;
-    record_left = false;
 }

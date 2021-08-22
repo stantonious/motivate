@@ -23,14 +23,6 @@
 
 #define UPDATE_THRESH 30
 
-// -1 to convert to 0 based out of the model
-#define REST_LABEL 0 - 1
-#define FORWARD_LABEL 1 - 1
-#define BACKWARD_LABEL 2 - 1
-#define LEFT_LABEL 3 - 1
-#define RIGHT_LABEL 4 - 1
-#define UP_LABEL 5 - 1
-#define DOWN_LABEL 6 - 1
 
 static const char *TAG = PRED_TAB_NAME;
 
