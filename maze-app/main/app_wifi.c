@@ -9,8 +9,7 @@
 
 #include "app_wifi.h"
 
-#define APP_ESP_WIFI_SSID CONFIG_ESP_WIFI_SSID
-#define APP_ESP_WIFI_PASS CONFIG_ESP_WIFI_PASSWORD
+#define APP_ESP_WIFI_PASS "bogus"
 #define APP_ESP_WIFI_MAXIMUM_RETRY 15
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
@@ -79,7 +78,7 @@ int init_wifi(void)
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = CONFIG_ESP_WIFI_SSID,
-            .password = CONFIG_ESP_WIFI_PASSWORD,
+            .password = "FOO",//CONFIG_ESP_WIFI_PASSWORD,
             /* Setting a password implies station will connect to all security modes including WEP/WPA.
              * However these modes are deprecated and not advisable to be used. Incase your Access point
              * doesn't support WPA2, these mode can be enabled by commenting below line */
@@ -108,12 +107,12 @@ int init_wifi(void)
     if (bits & WIFI_CONNECTED_BIT)
     {
         ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
-                 APP_ESP_WIFI_SSID, APP_ESP_WIFI_PASS);
+                 CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD);
     }
     else if (bits & WIFI_FAIL_BIT)
     {
         ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
-                 APP_ESP_WIFI_SSID, APP_ESP_WIFI_PASS);
+                 CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD);
     }
     else
     {
@@ -123,6 +122,7 @@ int init_wifi(void)
     ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler));
     ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler));
     vEventGroupDelete(s_wifi_event_group);
+    esp_event_loop_delete_default();
 
     return bits & WIFI_CONNECTED_BIT;
 }

@@ -15,7 +15,7 @@
 #include "core2forAWS.h"
 
 #include "imu_task.h"
-#include "arrow-img-30x30.h"
+//#include "arrow-img-30x30.h"
 #include "motivate_math.h"
 #include "maze_tab.h"
 #include "plots.h"
@@ -40,16 +40,12 @@ static lv_color_t *miniplotbuf;
 static lv_color_t *gyrominiplotbuf;
 static const char *TAG = MAZE_TAB_NAME;
 
-static float calib_ax = 0.00;
-static float calib_ay = 0.00;
-static float calib_az = 0.00;
-static float calib_a_uv[3];
 static float **abuf = NULL;
 static float **gbuf = NULL;
 
 static int x_current_cell = 0;
 static int y_current_cell = 13;
-static uint current_dir = NORTH_DIR;
+static uint map_projection = NORTH_DIR;
 
 static bool redraw_dir = true;
 
@@ -85,8 +81,6 @@ void display_maze_tab(lv_obj_t *tv)
     for (int i = 0; i < 3; i++)
         gbuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
 
-    down_recal(); //initial cal
-
     xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
     lv_obj_t *test_tab = lv_tabview_add_tab(tv, MAZE_TAB_NAME); // Create a tab
 
@@ -111,20 +105,21 @@ void display_maze_tab(lv_obj_t *tv)
     lv_obj_align(gyrominiplotcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15 - MINI_PLOT_HEIGHT - 2);
     lv_canvas_fill_bg(gyrominiplotcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
+    //inf label
+    lv_obj_t *inf_lbl = lv_label_create(test_tab, NULL);
+    lv_label_set_text(inf_lbl, "Unknown ");
+    lv_obj_align(inf_lbl, NULL, LV_ALIGN_IN_TOP_RIGHT, 0, 0);
+
     draw_maze(canvas, TEST_MAZE, 14, 14, NORTH_DIR, x_current_cell, y_current_cell);
 
-    lv_obj_t *arrow_img = lv_img_create(test_tab, NULL);
-    lv_img_set_src(arrow_img, &arrow_30x30);
-    lv_obj_align(arrow_img, NULL, LV_ALIGN_IN_TOP_RIGHT, -15, 5);
-    lv_img_set_angle(arrow_img, 900 * current_dir);
     int x_init_pos, y_init_pos;
-    get_status_pos_from_cell(x_current_cell, y_current_cell, current_dir, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
+    get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
     draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
 
     static lv_obj_t *parms[6];
     parms[0] = canvas;
-    parms[1] = arrow_img;
+    parms[1] = inf_lbl;
     parms[2] = miniplotcanvas;
     parms[3] = gyrominiplotcanvas;
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, parms, 1, &MAZE_handle, 1);
@@ -137,7 +132,7 @@ void maze_task(void *pvParameters)
 
     lv_obj_t **parms = (lv_obj_t **)pvParameters;
     lv_obj_t *canvas = (lv_obj_t *)parms[0];
-    lv_obj_t *arrow = (lv_obj_t *)parms[1];
+    lv_obj_t *inf_lbl = (lv_obj_t *)parms[1];
     lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[2];
     lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[3];
 
@@ -165,43 +160,70 @@ void maze_task(void *pvParameters)
                 gz_buf);
             xSemaphoreGive(xImuSemaphore);
 
+            xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
             {
-            case FORWARD_LABEL :
-                ESP_LOGI(TAG, "Moving %d",inf);
-                int move_dir = current_dir;
-                if (current_dir == EAST_DIR)
+            case REST_LABEL:
+                lv_label_set_text(inf_lbl, "REST ");
+                break;
+            case FORWARD_LABEL:
+                lv_label_set_text(inf_lbl, "Forward ");
+                break;
+            case BACKWARD_LABEL:
+                lv_label_set_text(inf_lbl, "Backward ");
+                break;
+            case UP_LABEL:
+                lv_label_set_text(inf_lbl, "Up ");
+                break;
+            case DOWN_LABEL:
+                lv_label_set_text(inf_lbl, "Down ");
+                break;
+            case LEFT_LABEL:
+                lv_label_set_text(inf_lbl, "Left ");
+                break;
+            case RIGHT_LABEL:
+                lv_label_set_text(inf_lbl, "Right ");
+                break;
+            }
+            xSemaphoreGive(xGuiSemaphore);
+
+            switch (inf)
+            {
+            case FORWARD_LABEL:
+                ESP_LOGI(TAG, "Moving %d", inf);
+                int move_dir = map_projection;
+                if (map_projection == EAST_DIR)
                     move_dir = WEST_DIR;
-                else if (current_dir == WEST_DIR)
+                else if (map_projection == WEST_DIR)
                     move_dir = EAST_DIR;
                 moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
                 if (!moved)
-                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case BACKWARD_LABEL:
-                ESP_LOGI(TAG, "Moving %d",inf);
-                int back_dir = (current_dir - 2) % 4;
+                ESP_LOGI(TAG, "Moving %d", inf);
+                int back_dir = (map_projection - 2) % 4;
                 moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, back_dir);
                 if (!moved)
-                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case LEFT_LABEL:
-                ESP_LOGI(TAG, "Moving %d",inf);
-                current_dir = (current_dir + 1) % 4;
-                ESP_LOGI(TAG, "new current dir  %d",current_dir);
+                ESP_LOGI(TAG, "Moving %d", inf);
+                map_projection = (map_projection + 1) % 4;
+                ESP_LOGI(TAG, "new current dir  %d", map_projection);
                 redraw_dir = true;
                 break;
             case RIGHT_LABEL:
-                ESP_LOGI(TAG, "Moving %d",inf);
-                current_dir = (current_dir - 1) % 4;
-                ESP_LOGI(TAG, "new current dir  %d",current_dir);
+                ESP_LOGI(TAG, "Moving %d", inf);
+                map_projection = (map_projection - 1) % 4;
+                ESP_LOGI(TAG, "new current dir  %d", map_projection);
                 redraw_dir = true;
                 break;
             case UP_LABEL:
-                ESP_LOGI(TAG, "Moving %d",inf);
+                ESP_LOGI(TAG, "Moving %d", inf);
                 break;
             case DOWN_LABEL:
-                ESP_LOGI(TAG, "Moving %d",inf);
+                ESP_LOGI(TAG, "Moving %d", inf);
                 break;
             }
         }
@@ -209,11 +231,10 @@ void maze_task(void *pvParameters)
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         if (redraw_dir)
         {
-            lv_img_set_angle(arrow, 900 * current_dir);
             redraw_dir = false;
-            draw_maze(canvas, TEST_MAZE, 14, 14, current_dir, x_current_cell, y_current_cell);
+            draw_maze(canvas, TEST_MAZE, 14, 14, map_projection, x_current_cell, y_current_cell);
             int x_pos, y_pos;
-            get_status_pos_from_cell(x_current_cell, y_current_cell, current_dir, &x_pos, &y_pos, x_current_cell, y_current_cell);
+            get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 5, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
         }
 
@@ -221,12 +242,12 @@ void maze_task(void *pvParameters)
         {
             int x_new_pos = 0;
             int y_new_pos = 0;
-            ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, current_dir);
+            ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
             last_move_ticks = ticks;
             x_current_cell = x_new_cell;
             y_current_cell = y_new_cell;
-            draw_maze(canvas, TEST_MAZE, 14, 14, current_dir, x_current_cell, y_current_cell);
-            get_status_pos_from_cell(x_new_cell, y_new_cell, current_dir, &x_new_pos, &y_new_pos, x_new_cell, y_new_cell);
+            draw_maze(canvas, TEST_MAZE, 14, 14, map_projection, x_current_cell, y_current_cell);
+            get_status_pos_from_cell(x_new_cell, y_new_cell, map_projection, &x_new_pos, &y_new_pos, x_new_cell, y_new_cell);
             draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
         }
 
@@ -236,9 +257,9 @@ void maze_task(void *pvParameters)
         if (op_x >= 0 && op_y >= 0 && (last_test_x != op_x || last_test_y != op_y))
         {
             int x_pos, y_pos;
-            get_status_pos_from_cell(last_test_x, last_test_y, current_dir, &x_pos, &y_pos, x_current_cell, y_current_cell);
+            get_status_pos_from_cell(last_test_x, last_test_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
-            get_status_pos_from_cell(op_x, op_y, current_dir, &x_pos, &y_pos, x_current_cell, y_current_cell);
+            get_status_pos_from_cell(op_x, op_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             last_test_x = op_x;
             last_test_y = op_y;
@@ -250,20 +271,4 @@ void maze_task(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     vTaskDelete(NULL); // Should never get to here...
-}
-
-void down_recal(void)
-{
-    MPU6886_GetAccelData(&calib_ax, &calib_ay, &calib_az);
-    float ax_uv[3] = {calib_ax, calib_ay, calib_az};
-    unit_vect(ax_uv, calib_a_uv, 3);
-    //ESP_LOGI(TAG, "recal raw x:%.6f y:%6.f z:%6.f  ", calib_ax, calib_ay, calib_az);
-    //ESP_LOGI(TAG, "recal to x:%.6f y:%6.f z:%6.f  ", calib_a_uv[0], calib_a_uv[1], calib_a_uv[2]);
-}
-
-void reset_north(void)
-{
-    //ESP_LOGI(TAG, "Resetting North");
-    current_dir = NORTH_DIR;
-    redraw_dir = true;
 }

@@ -54,16 +54,15 @@ void app_main(void)
     Core2ForAWS_Init();
     Core2ForAWS_Display_SetBrightness(40); // Last since the display first needs time to finish initializing.
 
+    init_imu();
+    init_mot_imu();
+    init_button_handlers();
 
     ui_start();
 
     int wifi_retries = 3;
     int connected = init_wifi();
-    while (!connected && wifi_retries >= 0)
-    {
-        ESP_LOGI(TAG, "=====Unable to connect to WiFi...retrying=====");
-        connected = init_wifi();
-    }
+
     //Core2ForAWS_Sk6812_SetSideColor(SK6812_SIDE_LEFT, (current_red << 16) + (current_green << 8) + (current_blue));
     if (connected == true){
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
@@ -74,6 +73,9 @@ void app_main(void)
         lv_obj_set_width(mbox1, 200);
         lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
         xSemaphoreGive(xGuiSemaphore);
+       
+        mot_mqtt_client_init();
+    //TODO maze_client_init();
     }else{
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         static const char *btns[] = {"Close", ""};
@@ -86,11 +88,6 @@ void app_main(void)
     }
 
 
-    init_imu();
-    init_mot_imu();
-    //TODO maze_client_init();
-    mot_mqtt_client_init();
-    init_button_handlers();
 
 }
 
@@ -108,9 +105,9 @@ static void ui_start(void)
     xSemaphoreGive(xGuiSemaphore);
 
     display_game_tab(tab_view);
-    display_pred_tab(tab_view);
-    display_train_tab(tab_view);
+    //display_pred_tab(tab_view);
     display_maze_tab(tab_view);
+    display_train_tab(tab_view);
 
 }
 
@@ -125,7 +122,7 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         vTaskSuspend(MAZE_handle);
         //vTaskSuspend(TILT_MAZE_handle);
         vTaskSuspend(Train_handle);
-        vTaskSuspend(Pred_handle);
+     //   vTaskSuspend(Pred_handle);
 
         if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
         {
@@ -140,10 +137,12 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
             ESP_LOGI(TAG, "Resuming :%s",tab_name);
             vTaskResume(Train_handle);
         }
+        /*
         else if (strcmp(tab_name, PRED_TAB_NAME) == 0)
         {
             ESP_LOGI(TAG, "Resuming :%s",tab_name);
             vTaskResume(Pred_handle);
         }
+        */
     }
 }
