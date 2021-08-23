@@ -5,6 +5,7 @@
         "float_buffer.h": "c",
         "mot-imu-tf.h": "c",
         "*.tpp": "cpp",
-        "maze_utils.h": "c"
+        "maze_utils.h": "c",
+        "maze.h": "c"
     }
 }

@@ -47,28 +47,34 @@ bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, i
 
     return true;
 }
-void get_pos_from_cell(int x_cell, int y_cell, int dir, int *x_pos, int *y_pos)
+void get_pos_from_cell(int x_cell, int y_cell, int dir, int wall_length,int wall_width,int *x_pos, int *y_pos)
 {
     int t_x, t_y;
     translate(x_cell, y_cell, &t_x, &t_y, dir, MAZE_LEN, MAZE_HEIGHT);
 
-    *x_pos = t_x * (WALL_LENGTH - WALL_WIDTH);
-    *y_pos = t_y * (WALL_LENGTH - WALL_WIDTH);
+    *x_pos = t_x * (wall_length - wall_width);
+    *y_pos = t_y * (wall_length - wall_width);
 }
 
 void get_status_pos_from_cell(int x_cell, int y_cell, int dir, int *x_pos, int *y_pos,int x_map_center,int y_map_center)
 {
-    translate_pos(x_map_center, y_map_center, &x_map_center, &y_map_center, dir, 14, 14);
-    // Translate to map to screen
+    translate_pos(x_map_center, y_map_center, &x_map_center, &y_map_center, dir, MAZE_LEN, MAZE_HEIGHT);
+    // Translate map to screen
     int t_x=0;
     int t_y=0;
     translate_pos(x_cell, y_cell,&t_x,&t_y, dir, MAZE_LEN, MAZE_HEIGHT);
-    t_x =  t_x + (.5 * 14) - x_map_center;
-    t_y = t_y + (.5 * 14) - y_map_center;
+    t_x =  t_x + (.5 * MAZE_SCALE) - x_map_center;
+    t_y = t_y + (.5 * MAZE_SCALE) - y_map_center;
 
     ESP_LOGI("UTIL", "status trans x:%d y:%d x:%d y:%d", x_cell, y_cell, t_x, t_y);
     *x_pos = t_x * (WALL_LENGTH - WALL_WIDTH) + (WALL_LENGTH / 2) - (STATUS_WIDTH / 2);
     *y_pos = t_y * (WALL_LENGTH - WALL_WIDTH) + (WALL_LENGTH / 2) - (STATUS_LENGTH / 2);
+}
+
+void get_static_status_pos_from_cell(int x_cell, int y_cell, int wall_length,int wall_width,int status_length, int status_width, int *x_pos, int *y_pos)
+{
+    *x_pos = x_cell * (wall_length - wall_width) + (wall_length / 2) - (status_width / 2);
+    *y_pos = y_cell * (wall_length - wall_width) + (wall_length / 2) - (status_length / 2);
 }
 
 float scale_gyro(float g)

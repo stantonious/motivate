@@ -26,16 +26,14 @@
 #include "mot_mqtt_client.h"
 #include "mot-imu-tf.h"
 
-#define CANVAS_WIDTH 220
-#define CANVAS_HEIGHT 220
-
 #define MINI_PLOT_WIDTH 70
 #define MINI_PLOT_HEIGHT 70
 #define MINI_PLOT_NUM 20
 
-#define MOVE_THRESH 50
+#define MOVE_THRESH 70
 
 static lv_color_t *cbuf;
+static lv_color_t *minimapbuf;
 static lv_color_t *miniplotbuf;
 static lv_color_t *gyrominiplotbuf;
 static const char *TAG = MAZE_TAB_NAME;
@@ -92,6 +90,13 @@ void display_maze_tab(lv_obj_t *tv)
     lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
     //mini plot
+    minimapbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
+    lv_obj_t *minimapcanvas = lv_canvas_create(test_tab, NULL);
+    lv_canvas_set_buffer(minimapcanvas, minimapbuf, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(minimapcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15 - (2* MINI_PLOT_HEIGHT) - 4);
+    lv_canvas_fill_bg(minimapcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
+
+    //mini plot
     miniplotbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
     lv_obj_t *miniplotcanvas = lv_canvas_create(test_tab, NULL);
     lv_canvas_set_buffer(miniplotcanvas, miniplotbuf, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, LV_IMG_CF_TRUE_COLOR);
@@ -122,6 +127,7 @@ void display_maze_tab(lv_obj_t *tv)
     parms[1] = inf_lbl;
     parms[2] = miniplotcanvas;
     parms[3] = gyrominiplotcanvas;
+    parms[4] = minimapcanvas;
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, parms, 1, &MAZE_handle, 1);
 }
 
@@ -135,6 +141,7 @@ void maze_task(void *pvParameters)
     lv_obj_t *inf_lbl = (lv_obj_t *)parms[1];
     lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[2];
     lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[3];
+    lv_obj_t *minimapcanvas = (lv_obj_t *)parms[4];
 
     vTaskSuspend(NULL);
 
@@ -244,9 +251,18 @@ void maze_task(void *pvParameters)
             int y_new_pos = 0;
             ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
             last_move_ticks = ticks;
+
+            //Reset static status
+            draw_static_maze(minimapcanvas,MINI_PLOT_WIDTH,MINI_PLOT_HEIGHT,TEST_MAZE,MAZE_LEN,MAZE_HEIGHT);
+            get_static_status_pos_from_cell(x_current_cell, y_current_cell, MINI_PLOT_WIDTH/MAZE_LEN,1,3,3, &x_new_pos, &y_new_pos);
+            draw_status(minimapcanvas,0,x_new_pos,y_new_pos,3,3);
             x_current_cell = x_new_cell;
             y_current_cell = y_new_cell;
-            draw_maze(canvas, TEST_MAZE, 14, 14, map_projection, x_current_cell, y_current_cell);
+
+            get_static_status_pos_from_cell(x_new_cell, y_new_cell, MINI_PLOT_WIDTH/MAZE_LEN,1,3,3, &x_new_pos, &y_new_pos);
+            draw_status(minimapcanvas,5,x_new_pos,y_new_pos,3,3);
+
+            draw_maze(canvas, TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);
             get_status_pos_from_cell(x_new_cell, y_new_cell, map_projection, &x_new_pos, &y_new_pos, x_new_cell, y_new_cell);
             draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
         }

@@ -117,16 +117,40 @@ void draw_maze(lv_obj_t *canvas, int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len
     {
         for (int x = 0; x < x_maze_len; x++)
         {
-            int t_x = x - (.5 * x_maze_len) + x_map_center;
-            int t_y = y - (.5 * y_maze_len) + y_map_center;
+            int scale = MAZE_SCALE;
+            int t_x = x - (.5 * scale) + x_map_center;
+            int t_y = y - (.5 * scale) + y_map_center;
             if (t_y < 0 || t_x < 0 || t_x >= x_maze_len || t_y >= y_maze_len)
                 continue;
             int s = 0;
             //to screen coords
             translate(t_x, t_y, &x_cell, &y_cell, dir, x_maze_len, y_maze_len);
             //Don't use translated coords for screen
-            get_pos_from_cell(x, y, NORTH_DIR, &x_pos, &y_pos);
+            get_pos_from_cell(x, y, NORTH_DIR, WALL_LENGTH,WALL_WIDTH,&x_pos, &y_pos);
             draw_cell(canvas, s, x_pos, y_pos, maze[y_cell][x_cell], dir, STATUS_WIDTH, STATUS_LENGTH, WALL_WIDTH, WALL_LENGTH);
+        }
+    }
+}
+
+void draw_static_maze(lv_obj_t *canvas, 
+                      int canvas_width,
+                      int cavans_height,
+                      int maze[MAZE_HEIGHT][MAZE_LEN], 
+                      int x_maze_len, 
+                      int y_maze_len)
+{
+    int x_pos, y_pos;
+    int wall_length = (canvas_width/x_maze_len);
+
+    lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
+
+    for (int y = 0; y < y_maze_len; y++)
+    {
+        for (int x = 0; x < x_maze_len; x++)
+        {
+            int s = 0;
+            get_pos_from_cell(x, y, NORTH_DIR, wall_length,1,&x_pos, &y_pos);
+            draw_cell(canvas, s, x_pos, y_pos, maze[y][x], NORTH_DIR, 1, 1, 1, wall_length);
         }
     }
 }

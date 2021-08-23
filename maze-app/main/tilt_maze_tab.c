@@ -21,9 +21,6 @@
 
 #include "mot_mqtt_client.h"
 
-#define CANVAS_WIDTH 220
-#define CANVAS_HEIGHT 220
-
 #define TILT_THRESH .2
 
 #define MOVE_THRESH 20
@@ -31,12 +28,6 @@
 #define MINI_PLOT_WIDTH 70
 #define MINI_PLOT_HEIGHT 70
 #define MINI_PLOT_NUM 20
-
-#define WALL_WIDTH 3
-#define WALL_LENGTH 18
-
-#define STATUS_WIDTH 8
-#define STATUS_LENGTH 8
 
 static lv_color_t *cbuf;
 static lv_color_t *miniplotbuf;
@@ -117,7 +108,7 @@ void display_tilt_maze_tab(lv_obj_t *tv)
         for (int j = 0; j < 14; j++)
         {
             int s = 0;
-            get_pos_from_cell(j, i, NORTH_DIR,&x_pos, &y_pos);
+            get_pos_from_cell(j, i, NORTH_DIR,WALL_LENGTH,WALL_WIDTH,&x_pos, &y_pos);
             draw_cell(canvas, s, x_pos, y_pos, TEST_MAZE[i][j], NORTH_DIR,STATUS_WIDTH, STATUS_LENGTH, WALL_WIDTH, WALL_LENGTH);
         }
     }
