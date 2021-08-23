@@ -60,7 +60,6 @@ void app_main(void)
 
     ui_start();
 
-    int wifi_retries = 3;
     int connected = init_wifi();
 
     //Core2ForAWS_Sk6812_SetSideColor(SK6812_SIDE_LEFT, (current_red << 16) + (current_green << 8) + (current_blue));

@@ -5,3 +5,5 @@
 TaskHandle_t IMU_handle;
 
 void display_game_tab(lv_obj_t* tv);
+
+int16_t get_sensitivity();

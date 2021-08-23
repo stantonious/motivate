@@ -25,12 +25,12 @@
 
 #include "mot_mqtt_client.h"
 #include "mot-imu-tf.h"
+#include "game_tab.h"
 
 #define MINI_PLOT_WIDTH 70
 #define MINI_PLOT_HEIGHT 70
 #define MINI_PLOT_NUM 20
 
-#define MOVE_THRESH 70
 
 static lv_color_t *cbuf;
 static lv_color_t *minimapbuf;
@@ -152,7 +152,7 @@ void maze_task(void *pvParameters)
         bool moved = false;
         int y_new_cell, x_new_cell;
 
-        if (update_delta > MOVE_THRESH)
+        if (update_delta > get_sensitivity())
         {
             last_move_ticks = ticks;
 
