@@ -10,6 +10,17 @@
 
 static const char *TAG = "IMU_TASK";
 
+
+SemaphoreHandle_t xImuSemaphore;
+
+void *ax_buf;
+void *ay_buf;
+void *az_buf;
+
+void *gz_buf;
+void *gx_buf;
+void *gy_buf;
+
 void init_imu(void)
 {
     xImuSemaphore = xSemaphoreCreateMutex();

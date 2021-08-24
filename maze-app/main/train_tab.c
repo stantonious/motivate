@@ -59,66 +59,85 @@ void display_train_tab(lv_obj_t *tv)
     xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
     lv_obj_t *test_tab = lv_tabview_add_tab(tv, TRAIN_TAB_NAME); // Create a tab
 
+    lv_obj_t *b_lbl = lv_label_create(test_tab, NULL);
+    lv_label_set_text(b_lbl, "Foward");
+    lv_obj_align(b_lbl, NULL, LV_ALIGN_CENTER, -70, -70);
+
+    lv_obj_t *f_led = lv_led_create(test_tab, NULL);
+    lv_obj_align(f_led, NULL, LV_ALIGN_CENTER, 30, -70);
+    lv_obj_set_size(f_led, 20, 20);
+    lv_led_off(f_led);
+
+    lv_obj_t *f_lbl = lv_label_create(test_tab, NULL);
+    lv_label_set_text(f_lbl, "Backward");
+    lv_obj_align(f_lbl, NULL, LV_ALIGN_CENTER, -70, -50);
+
+    lv_obj_t *b_led = lv_led_create(test_tab, NULL);
+    lv_obj_align(b_led, NULL, LV_ALIGN_CENTER, 30, -50);
+    lv_obj_set_size(b_led, 20, 20);
+    lv_led_off(b_led);
+
     //leds
     lv_obj_t *l_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(l_lbl, "Left ");
-    lv_obj_align(l_lbl, NULL, LV_ALIGN_CENTER, -70, -75);
+    lv_obj_align(l_lbl, NULL, LV_ALIGN_CENTER, -70, -30);
     lv_obj_t *l_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(l_led, NULL, LV_ALIGN_CENTER, 30, -75);
-    lv_obj_set_size(l_led, 25, 25);
+    lv_obj_align(l_led, NULL, LV_ALIGN_CENTER, 30, -30);
+    lv_obj_set_size(l_led, 20, 20);
     lv_led_off(l_led);
 
     //leds
     lv_obj_t *r_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(r_lbl, "Right ");
-    lv_obj_align(r_lbl, NULL, LV_ALIGN_CENTER, -70, -45);
+    lv_obj_align(r_lbl, NULL, LV_ALIGN_CENTER, -70, -10);
     lv_obj_t *r_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(r_led, NULL, LV_ALIGN_CENTER, 30, -45);
-    lv_obj_set_size(r_led, 25, 25);
+    lv_obj_align(r_led, NULL, LV_ALIGN_CENTER, 30, -10);
+    lv_obj_set_size(r_led, 20, 20);
     lv_led_off(r_led);
 
     lv_obj_t *u_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(u_lbl, "Up");
-    lv_obj_align(u_lbl, NULL, LV_ALIGN_CENTER, -70, -15);
+    lv_obj_align(u_lbl, NULL, LV_ALIGN_CENTER, -70, 10);
 
     lv_obj_t *u_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(u_led, NULL, LV_ALIGN_CENTER, 30, -15);
-    lv_obj_set_size(u_led, 25, 25);
+    lv_obj_align(u_led, NULL, LV_ALIGN_CENTER, 30, 10);
+    lv_obj_set_size(u_led, 20, 20);
     lv_led_off(u_led);
 
     lv_obj_t *d_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(d_lbl, "Down");
-    lv_obj_align(d_lbl, NULL, LV_ALIGN_CENTER, -70, 15);
+    lv_obj_align(d_lbl, NULL, LV_ALIGN_CENTER, -70, 30);
     lv_obj_t *d_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(d_led, NULL, LV_ALIGN_CENTER, 30, 15);
-    lv_obj_set_size(d_led, 25, 25);
+    lv_obj_align(d_led, NULL, LV_ALIGN_CENTER, 30, 30);
+    lv_obj_set_size(d_led, 20, 20);
     lv_led_off(d_led);
 
-    lv_obj_t *f_lbl = lv_label_create(test_tab, NULL);
-    lv_label_set_text(f_lbl, "Backward");
-    lv_obj_align(f_lbl, NULL, LV_ALIGN_CENTER, -70, 45);
 
-    lv_obj_t *b_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(b_led, NULL, LV_ALIGN_CENTER, 30, 45);
-    lv_obj_set_size(b_led, 25, 25);
-    lv_led_off(b_led);
+    lv_obj_t *ls_lbl = lv_label_create(test_tab, NULL);
+    lv_label_set_text(ls_lbl, "Left Side");
+    lv_obj_align(ls_lbl, NULL, LV_ALIGN_CENTER, -70, 50);
 
-    lv_obj_t *b_lbl = lv_label_create(test_tab, NULL);
-    lv_label_set_text(b_lbl, "Foward");
-    lv_obj_align(b_lbl, NULL, LV_ALIGN_CENTER, -70, 75);
+    lv_obj_t *ls_led = lv_led_create(test_tab, NULL);
+    lv_obj_align(ls_led, NULL, LV_ALIGN_CENTER, 30, 50);
+    lv_obj_set_size(ls_led, 20, 20);
+    lv_led_off(ls_led);
 
-    lv_obj_t *f_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(f_led, NULL, LV_ALIGN_CENTER, 30, 75);
-    lv_obj_set_size(f_led, 25, 25);
-    lv_led_off(f_led);
+    lv_obj_t *rs_lbl = lv_label_create(test_tab, NULL);
+    lv_label_set_text(rs_lbl, "Right Side");
+    lv_obj_align(rs_lbl, NULL, LV_ALIGN_CENTER, -70, 70);
+
+    lv_obj_t *rs_led = lv_led_create(test_tab, NULL);
+    lv_obj_align(rs_led, NULL, LV_ALIGN_CENTER, 30, 70);
+    lv_obj_set_size(rs_led, 20, 20);
+    lv_led_off(rs_led);
 
     lv_obj_t *o_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(o_lbl, "On/Off");
-    lv_obj_align(o_lbl, NULL, LV_ALIGN_CENTER, -70, 100);
+    lv_obj_align(o_lbl, NULL, LV_ALIGN_CENTER, -70, 90);
 
     lv_obj_t *o_led = lv_led_create(test_tab, NULL);
-    lv_obj_align(o_led, NULL, LV_ALIGN_CENTER, 30, 100);
-    lv_obj_set_size(o_led, 25, 25);
+    lv_obj_align(o_led, NULL, LV_ALIGN_CENTER, 30, 90);
+    lv_obj_set_size(o_led, 20, 20);
     lv_led_off(o_led);
     xSemaphoreGive(xGuiSemaphore);
 
@@ -130,6 +149,8 @@ void display_train_tab(lv_obj_t *tv)
     parms[4] = f_led;
     parms[5] = b_led;
     parms[6] = o_led;
+    parms[7] = ls_led;
+    parms[8] = rs_led;
 
     xTaskCreatePinnedToCore(train_task, "TrainTask", 4096, parms, 1, &Train_handle, 1);
 }
@@ -152,6 +173,8 @@ void train_task(void *pvParameters)
     lv_obj_t *f_led = (lv_obj_t *)parms[4];
     lv_obj_t *b_led = (lv_obj_t *)parms[5];
     lv_obj_t *o_led = (lv_obj_t *)parms[6];
+    lv_obj_t *ls_led = (lv_obj_t *)parms[7];
+    lv_obj_t *rs_led = (lv_obj_t *)parms[8];
 
     vTaskSuspend(NULL);
 
@@ -236,6 +259,14 @@ void train_task(void *pvParameters)
             lv_led_on(b_led);
         else
             lv_led_off(b_led);
+        if (current_label == LEFTSIDE_LABEL)
+            lv_led_on(ls_led);
+        else
+            lv_led_off(ls_led);
+        if (current_label == RIGHTSIDE_LABEL)
+            lv_led_on(rs_led);
+        else
+            lv_led_off(rs_led);
 
         if (train_on_off == true)
             lv_led_on(o_led);
@@ -249,7 +280,7 @@ void train_task(void *pvParameters)
 
 void toggle_train_class(void)
 {
-    current_label = (current_label + 1) % 7;
+    current_label = (current_label + 1) % 9;
     ESP_LOGI(TAG, "toggling class :%d", current_label);
 }
 void toggle_train(void)

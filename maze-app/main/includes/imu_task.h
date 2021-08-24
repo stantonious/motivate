@@ -9,12 +9,12 @@ TaskHandle_t IMU_handle;
 void init_imu(void);
 void imu_handler_task(void *pvParameters);
 
-SemaphoreHandle_t xImuSemaphore;
+extern SemaphoreHandle_t xImuSemaphore;
 
-void *ax_buf;
-void *ay_buf;
-void *az_buf;
+extern void *ax_buf;
+extern void *ay_buf;
+extern void *az_buf;
 
-void *gz_buf;
-void *gx_buf;
-void *gy_buf;
+extern void *gz_buf;
+extern void *gx_buf;
+extern void *gy_buf;

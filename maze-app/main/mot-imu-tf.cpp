@@ -154,7 +154,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[7] = {
+  float dequant[9] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
@@ -162,9 +162,11 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
       (output->data.int8[4] - output->params.zero_point) * output->params.scale,
       (output->data.int8[5] - output->params.zero_point) * output->params.scale,
       (output->data.int8[6] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[7] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[8] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 7);
+  float max_conf = get_max(dequant, 9);
 
   if (max_conf < thresh)
   {
@@ -175,7 +177,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 7);
+  return get_max_idx(dequant, 9);
 }
 
 int buffer_infer(void *ax,
@@ -227,7 +229,7 @@ int buffer_infer(void *ax,
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[7] = {
+  float dequant[9] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
@@ -235,9 +237,11 @@ int buffer_infer(void *ax,
       (output->data.int8[4] - output->params.zero_point) * output->params.scale,
       (output->data.int8[5] - output->params.zero_point) * output->params.scale,
       (output->data.int8[6] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[7] - output->params.zero_point) * output->params.scale,
+      (output->data.int8[8] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 7);
+  float max_conf = get_max(dequant, 9);
 
   if (max_conf < thresh)
   {
@@ -248,5 +252,5 @@ int buffer_infer(void *ax,
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 7);
+  return get_max_idx(dequant, 9);
 }

@@ -31,7 +31,6 @@
 #define MINI_PLOT_HEIGHT 70
 #define MINI_PLOT_NUM 20
 
-
 static lv_color_t *cbuf;
 static lv_color_t *minimapbuf;
 static lv_color_t *miniplotbuf;
@@ -93,7 +92,7 @@ void display_maze_tab(lv_obj_t *tv)
     minimapbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
     lv_obj_t *minimapcanvas = lv_canvas_create(test_tab, NULL);
     lv_canvas_set_buffer(minimapcanvas, minimapbuf, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, LV_IMG_CF_TRUE_COLOR);
-    lv_obj_align(minimapcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15 - (2* MINI_PLOT_HEIGHT) - 4);
+    lv_obj_align(minimapcanvas, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, -15, -15 - (2 * MINI_PLOT_HEIGHT) - 4);
     lv_canvas_fill_bg(minimapcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
     //mini plot
@@ -191,6 +190,12 @@ void maze_task(void *pvParameters)
             case RIGHT_LABEL:
                 lv_label_set_text(inf_lbl, "Right ");
                 break;
+            case LEFTSIDE_LABEL:
+                lv_label_set_text(inf_lbl, "Left Side ");
+                break;
+            case RIGHTSIDE_LABEL:
+                lv_label_set_text(inf_lbl, "Right Side");
+                break;
             }
             xSemaphoreGive(xGuiSemaphore);
 
@@ -253,14 +258,14 @@ void maze_task(void *pvParameters)
             last_move_ticks = ticks;
 
             //Reset static status
-            draw_static_maze(minimapcanvas,MINI_PLOT_WIDTH,MINI_PLOT_HEIGHT,TEST_MAZE,MAZE_LEN,MAZE_HEIGHT);
-            get_static_status_pos_from_cell(x_current_cell, y_current_cell, MINI_PLOT_WIDTH/MAZE_LEN,1,3,3, &x_new_pos, &y_new_pos);
-            draw_status(minimapcanvas,0,x_new_pos,y_new_pos,3,3);
+            draw_static_maze(minimapcanvas, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, TEST_MAZE, MAZE_LEN, MAZE_HEIGHT);
+            get_static_status_pos_from_cell(x_current_cell, y_current_cell, MINI_PLOT_WIDTH / MAZE_LEN, 1, 3, 3, &x_new_pos, &y_new_pos);
+            draw_status(minimapcanvas, 0, x_new_pos, y_new_pos, 3, 3);
             x_current_cell = x_new_cell;
             y_current_cell = y_new_cell;
 
-            get_static_status_pos_from_cell(x_new_cell, y_new_cell, MINI_PLOT_WIDTH/MAZE_LEN,1,3,3, &x_new_pos, &y_new_pos);
-            draw_status(minimapcanvas,5,x_new_pos,y_new_pos,3,3);
+            get_static_status_pos_from_cell(x_new_cell, y_new_cell, MINI_PLOT_WIDTH / MAZE_LEN, 1, 3, 3, &x_new_pos, &y_new_pos);
+            draw_status(minimapcanvas, 5, x_new_pos, y_new_pos, 3, 3);
 
             draw_maze(canvas, TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);
             get_status_pos_from_cell(x_new_cell, y_new_cell, map_projection, &x_new_pos, &y_new_pos, x_new_cell, y_new_cell);
@@ -280,8 +285,10 @@ void maze_task(void *pvParameters)
             last_test_x = op_x;
             last_test_y = op_y;
         }
+        xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
         draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
         draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        xSemaphoreGive(xImuSemaphore);
 
         xSemaphoreGive(xGuiSemaphore);
         vTaskDelay(pdMS_TO_TICKS(100));

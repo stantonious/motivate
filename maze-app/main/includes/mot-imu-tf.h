@@ -16,6 +16,8 @@ extern "C" {
 #define RIGHT_LABEL 4
 #define UP_LABEL 5
 #define DOWN_LABEL 6
+#define LEFTSIDE_LABEL 7
+#define RIGHTSIDE_LABEL 8
 
 TaskHandle_t mot_imu_handle;
 
