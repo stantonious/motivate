@@ -54,7 +54,7 @@ void imu_handler_task(void *pvParameters)
         push(gy_buf, gy);
         push(gz_buf, gz);
         xSemaphoreGive(xImuSemaphore);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(66)); // 15Hz
     }
     vTaskDelete(NULL); // Should never get to here...
 }

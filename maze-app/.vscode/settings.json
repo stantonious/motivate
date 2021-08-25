@@ -6,6 +6,9 @@
         "mot-imu-tf.h": "c",
         "*.tpp": "cpp",
         "maze_utils.h": "c",
-        "maze.h": "c"
+        "maze.h": "c",
+        "imu_task.h": "c",
+        "maze_tab.h": "c",
+        "plots.h": "c"
     }
 }

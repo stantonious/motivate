@@ -2,6 +2,7 @@
 #include "mot-imu-tf.h"
 #include "esp_log.h"
 #include <stdio.h>
+#include "freertos/semphr.h"
 #include "float_buffer.h"
 #include "CircularBuffer.h"
 
@@ -15,6 +16,7 @@
 #include "tensorflow/lite/version.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+#include "imu_task.h"
 
 static const char *TAG = "MOT_IMU_TFL_HANDLER";
 
@@ -24,6 +26,12 @@ static const int g_min = -90;
 static const int g_max = 90;
 static const int a_min = -1;
 static const int a_max = 1;
+
+#define INF_SIZE 10
+static CircularBuffer<int16_t, INF_SIZE> inf_cb;
+static CircularBuffer<float, INF_SIZE> conf_cb;
+SemaphoreHandle_t xInfSemaphore;
+
 // Globals, used for compatibility with Arduino-style sketches.
 namespace
 {
@@ -43,7 +51,8 @@ namespace
 
 void init_mot_imu(void)
 {
-  ESP_LOGI(TAG,"INITING Model");
+  ESP_LOGI(TAG, "INITING Model");
+  xInfSemaphore = xSemaphoreCreateMutex();
   // Set up logging. Google style is to avoid globals or statics because of
   // lifetime uncertainty, but since this has a trivial destructor it's okay.
   // NOLINTNEXTLINE(runtime-global-variables)
@@ -68,7 +77,7 @@ void init_mot_imu(void)
   static tflite::MicroMutableOpResolver<5> resolver;
   resolver.AddConv2D();
   resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
-             tflite::ops::micro::Register_MAX_POOL_2D());
+                      tflite::ops::micro::Register_MAX_POOL_2D());
   resolver.AddFullyConnected();
   resolver.AddSoftmax();
   resolver.AddReshape();
@@ -78,10 +87,9 @@ void init_mot_imu(void)
       model, resolver, tensor_arena, kTensorArenaSize, error_reporter);
   interpreter = &static_interpreter;
 
-
   // Allocate memory from the tensor_arena for the model's tensors.
   TfLiteStatus allocate_status = interpreter->AllocateTensors();
-  ESP_LOGI(TAG,"Arena size %d",static_interpreter.arena_used_bytes());
+  ESP_LOGI(TAG, "Arena size %d", static_interpreter.arena_used_bytes());
   if (allocate_status != kTfLiteOk)
   {
     TF_LITE_REPORT_ERROR(error_reporter, "AllocateTensors() failed");
@@ -89,11 +97,24 @@ void init_mot_imu(void)
   }
   input = interpreter->input(0);
   output = interpreter->output(0);
-  /*
-  */
-  //xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096, NULL, 1, &mot_imu_handle, 0);
+
+  xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096, NULL, 1, &mot_imu_handle, 0);
 }
 
+float get_max_idx_cb(CircularBuffer<float, INF_SIZE> &buf,int lastn)
+{
+  int max_idx = 0;
+  float max = buf[buf.size()-1];
+  for (int i = buf.size()-2; i >= buf.size()-lastn && i >= 0 ; i--)
+  {
+    if (buf[i] > max)
+    {
+      max_idx = i;
+      max = buf[i];
+    }
+  }
+  return max_idx;
+}
 float get_max(float *f, int n)
 {
   float max = f[0];
@@ -154,7 +175,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
 
   static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[9] = {
+  float dequant[NUM_CLASSES] = {
       (output->data.int8[0] - output->params.zero_point) * output->params.scale,
       (output->data.int8[1] - output->params.zero_point) * output->params.scale,
       (output->data.int8[2] - output->params.zero_point) * output->params.scale,
@@ -166,7 +187,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
       (output->data.int8[8] - output->params.zero_point) * output->params.scale,
   };
 
-  float max_conf = get_max(dequant, 9);
+  float max_conf = get_max(dequant, NUM_CLASSES);
 
   if (max_conf < thresh)
   {
@@ -177,7 +198,7 @@ int infer(float **a_samples, float **g_samples, int a_size, int g_size)
   //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
   //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
   //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 9);
+  return get_max_idx(dequant, NUM_CLASSES);
 }
 
 int buffer_infer(void *ax,
@@ -186,6 +207,29 @@ int buffer_infer(void *ax,
                  void *gx,
                  void *gy,
                  void *gz)
+{
+  static float thresh = .6;
+  static float confs_buf[NUM_CLASSES];
+  buffer_confs(ax, ay, az, gx, gy, gz,confs_buf);
+
+  float max_conf = get_max(confs_buf, NUM_CLASSES);
+
+  if (max_conf < thresh)
+  {
+    //ESP_LOGI(TAG, "confidence too low return 0");
+    return -1;
+  }
+
+  return get_max_idx(confs_buf, NUM_CLASSES);
+}
+int buffer_confs(void *ax,
+                 void *ay,
+                 void *az,
+                 void *gx,
+                 void *gy,
+                 void *gz,
+                 float *buf)
+
 {
 
   CircularBuffer<float, BUFSIZE> *ax_cb = (CircularBuffer<float, BUFSIZE> *)ax;
@@ -227,30 +271,74 @@ int buffer_infer(void *ax,
     return -1;
   }
 
-  static float thresh = .6;
   // Read the predicted y value from the model's output tensor
-  float dequant[9] = {
-      (output->data.int8[0] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[1] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[2] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[3] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[4] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[5] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[6] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[7] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[8] - output->params.zero_point) * output->params.scale,
-  };
 
-  float max_conf = get_max(dequant, 9);
+  buf[0] = (output->data.int8[0] - output->params.zero_point) * output->params.scale;
+  buf[1] = (output->data.int8[1] - output->params.zero_point) * output->params.scale;
+  buf[2] = (output->data.int8[2] - output->params.zero_point) * output->params.scale;
+  buf[3] = (output->data.int8[3] - output->params.zero_point) * output->params.scale;
+  buf[4] = (output->data.int8[4] - output->params.zero_point) * output->params.scale;
+  buf[5] = (output->data.int8[5] - output->params.zero_point) * output->params.scale;
+  buf[6] = (output->data.int8[6] - output->params.zero_point) * output->params.scale;
+  buf[7] = (output->data.int8[7] - output->params.zero_point) * output->params.scale;
+  buf[8] = (output->data.int8[8] - output->params.zero_point) * output->params.scale;
 
-  if (max_conf < thresh)
+return 0;
+}
+
+void mot_imu_task(void *pvParameters)
+{
+
+float confs[NUM_CLASSES];
+  for (;;)
   {
-    //ESP_LOGI(TAG, "confidence too low return 0");
-    return -1;
-  }
 
-  //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
-  //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
-  //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, 9);
+    xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+    buffer_confs(
+        ax_buf,
+        ay_buf,
+        az_buf,
+        gx_buf,
+        gy_buf,
+        gz_buf,
+        confs);
+    xSemaphoreGive(xImuSemaphore);
+
+    xSemaphoreTake(xInfSemaphore, portMAX_DELAY);
+    int idx = get_max_idx(confs, NUM_CLASSES);
+    inf_cb.push(idx);
+    conf_cb.push(confs[idx]);
+    xSemaphoreGive(xInfSemaphore);
+
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+
+float conv_coefs[INF_SIZE] = {
+    .2,
+    .3,
+    .4,
+    .5,
+    .4,
+    .5,
+    .6,
+    .9,
+    1.,
+    .5};
+
+int get_latest_inf()
+{
+  xSemaphoreTake(xInfSemaphore, portMAX_DELAY);
+  int res = get_max_idx_cb(conf_cb,3);
+  xSemaphoreGive(xInfSemaphore);
+  return res;
+  /*
+  for (int i=0;i<INF_SIZE;i++)
+  {
+    int class_idx = inf_cb[i];
+    if (class_idx < 0)continue;
+
+    res[class_idx] += 1 * conv_coefs[i];
+  }
+  */
 }

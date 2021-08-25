@@ -26,12 +26,8 @@
 
 static const char *TAG = TRAIN_TAB_NAME;
 
-static int current_label = 0;
-static bool train_on_off = false;
-
-void record_sample(char *topic, int type)
-{
-}
+int current_label;
+bool train_on_off;
 
 static float a_std_thresh = .20;
 static float g_std_thresh = 80;
@@ -112,7 +108,6 @@ void display_train_tab(lv_obj_t *tv)
     lv_obj_set_size(d_led, 20, 20);
     lv_led_off(d_led);
 
-
     lv_obj_t *ls_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(ls_lbl, "Left Side");
     lv_obj_align(ls_lbl, NULL, LV_ALIGN_CENTER, -70, 50);
@@ -141,22 +136,24 @@ void display_train_tab(lv_obj_t *tv)
     lv_led_off(o_led);
     xSemaphoreGive(xGuiSemaphore);
 
-    static lv_obj_t *parms[6];
-    parms[0] = l_led;
-    parms[1] = r_led;
-    parms[2] = u_led;
-    parms[3] = d_led;
-    parms[4] = f_led;
-    parms[5] = b_led;
-    parms[6] = o_led;
-    parms[7] = ls_led;
-    parms[8] = rs_led;
+    static lv_obj_t *train_parms[9];
+    train_parms[0] = l_led;
+    train_parms[1] = r_led;
+    train_parms[2] = u_led;
+    train_parms[3] = d_led;
+    train_parms[4] = f_led;
+    train_parms[5] = b_led;
+    train_parms[6] = o_led;
+    train_parms[7] = ls_led;
+    train_parms[8] = rs_led;
 
-    xTaskCreatePinnedToCore(train_task, "TrainTask", 4096, parms, 1, &Train_handle, 1);
+    xTaskCreatePinnedToCore(train_task, "TrainTask", 4096, train_parms, 1, &Train_handle, 1);
 }
 
 void train_task(void *pvParameters)
 {
+    current_label = 0;
+    train_on_off = false;
 
     float **abuf = (float **)malloc(3 * sizeof(float *));
     for (int i = 0; i < 3; i++)
@@ -165,16 +162,16 @@ void train_task(void *pvParameters)
     for (int i = 0; i < 3; i++)
         gbuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
 
-    lv_obj_t **parms = (lv_obj_t **)pvParameters;
-    lv_obj_t *l_led = (lv_obj_t *)parms[0];
-    lv_obj_t *r_led = (lv_obj_t *)parms[1];
-    lv_obj_t *u_led = (lv_obj_t *)parms[2];
-    lv_obj_t *d_led = (lv_obj_t *)parms[3];
-    lv_obj_t *f_led = (lv_obj_t *)parms[4];
-    lv_obj_t *b_led = (lv_obj_t *)parms[5];
-    lv_obj_t *o_led = (lv_obj_t *)parms[6];
-    lv_obj_t *ls_led = (lv_obj_t *)parms[7];
-    lv_obj_t *rs_led = (lv_obj_t *)parms[8];
+    lv_obj_t **train_parms = (lv_obj_t **)pvParameters;
+    lv_obj_t *l_led = (lv_obj_t *)train_parms[0];
+    lv_obj_t *r_led = (lv_obj_t *)train_parms[1];
+    lv_obj_t *u_led = (lv_obj_t *)train_parms[2];
+    lv_obj_t *d_led = (lv_obj_t *)train_parms[3];
+    lv_obj_t *f_led = (lv_obj_t *)train_parms[4];
+    lv_obj_t *b_led = (lv_obj_t *)train_parms[5];
+    lv_obj_t *o_led = (lv_obj_t *)train_parms[6];
+    lv_obj_t *ls_led = (lv_obj_t *)train_parms[7];
+    lv_obj_t *rs_led = (lv_obj_t *)train_parms[8];
 
     vTaskSuspend(NULL);
 
@@ -187,51 +184,31 @@ void train_task(void *pvParameters)
         update_delta = now - last_update;
 
         //ESP_LOGI(TAG, "ud:%ld now: %ld last_update :%ld is_at_rest:%d", update_delta,now,last_update,is_at_rest());
-         xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-        bool resting = is_at_rest_pred(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
+        xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+        //bool resting = is_at_rest_pred(ax_buf, ay_buf, az_buf, gx_buf, gy_buf, gz_buf);
+        bool resting = false;
         xSemaphoreGive(xImuSemaphore);
-        if (current_label == REST_LABEL && update_delta > UPDATE_THRESH)
+
+        if (train_on_off == true && update_delta > UPDATE_THRESH)
         {
             last_update = xTaskGetTickCount();
-            if (train_on_off == true)
-            {
-                ESP_LOGI(TAG, "rec rest samp");
-                unsigned long t = time(NULL);
+            unsigned long t = time(NULL);
 
-                xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-                mk_copy(ax_buf, abuf[0], BUFSIZE);
-                mk_copy(ay_buf, abuf[1], BUFSIZE);
-                mk_copy(az_buf, abuf[2], BUFSIZE);
-                mk_copy(gx_buf, gbuf[0], BUFSIZE);
-                mk_copy(gy_buf, gbuf[1], BUFSIZE);
-                mk_copy(gz_buf, gbuf[2], BUFSIZE);
-                xSemaphoreGive(xImuSemaphore);
-                ESP_LOGI(TAG, "send sample");
+            xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
+            mk_copy(ax_buf, abuf[0], BUFSIZE);
+            mk_copy(ay_buf, abuf[1], BUFSIZE);
+            mk_copy(az_buf, abuf[2], BUFSIZE);
+            mk_copy(gx_buf, gbuf[0], BUFSIZE);
+            mk_copy(gy_buf, gbuf[1], BUFSIZE);
+            mk_copy(gz_buf, gbuf[2], BUFSIZE);
+            xSemaphoreGive(xImuSemaphore);
+            if (current_label == REST_LABEL)
+            {
                 send_sample("topic_2", abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
-                ESP_LOGI(TAG, "send sample done");
             }
-        }
-        if (update_delta > UPDATE_THRESH && !resting)
-        {
-            ESP_LOGI(TAG, "record!");
-            last_update = xTaskGetTickCount();
-            if (train_on_off == true)
+            else if (resting != true)
             {
-
-                ESP_LOGI(TAG, "rec samp");
-                unsigned long t = time(NULL);
-
-                xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-                mk_copy(ax_buf, abuf[0], BUFSIZE);
-                mk_copy(ay_buf, abuf[1], BUFSIZE);
-                mk_copy(az_buf, abuf[2], BUFSIZE);
-                mk_copy(gx_buf, gbuf[0], BUFSIZE);
-                mk_copy(gy_buf, gbuf[1], BUFSIZE);
-                mk_copy(gz_buf, gbuf[2], BUFSIZE);
-                xSemaphoreGive(xImuSemaphore);
-                ESP_LOGI(TAG, "send sample");
                 send_sample("topic_2", abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
-                ESP_LOGI(TAG, "send sample done");
             }
         }
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);

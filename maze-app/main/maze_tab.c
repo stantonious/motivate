@@ -114,20 +114,20 @@ void display_maze_tab(lv_obj_t *tv)
     lv_label_set_text(inf_lbl, "Unknown ");
     lv_obj_align(inf_lbl, NULL, LV_ALIGN_IN_TOP_RIGHT, 0, 0);
 
-    draw_maze(canvas, TEST_MAZE, 14, 14, NORTH_DIR, x_current_cell, y_current_cell);
+    draw_maze(canvas, TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, NORTH_DIR, x_current_cell, y_current_cell);
 
     int x_init_pos, y_init_pos;
     get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
     draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
 
-    static lv_obj_t *parms[6];
-    parms[0] = canvas;
-    parms[1] = inf_lbl;
-    parms[2] = miniplotcanvas;
-    parms[3] = gyrominiplotcanvas;
-    parms[4] = minimapcanvas;
-    xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, parms, 1, &MAZE_handle, 1);
+    static lv_obj_t *maze_parms[6];
+    maze_parms[0] = canvas;
+    maze_parms[1] = inf_lbl;
+    maze_parms[2] = miniplotcanvas;
+    maze_parms[3] = gyrominiplotcanvas;
+    maze_parms[4] = minimapcanvas;
+    xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, maze_parms, 1, &MAZE_handle, 1);
 }
 
 //float step_coefs[] = {1., 1., 1., -1., -1};
@@ -135,12 +135,12 @@ float step_coefs[] = {.2, .2, .2, .2, .2};
 void maze_task(void *pvParameters)
 {
 
-    lv_obj_t **parms = (lv_obj_t **)pvParameters;
-    lv_obj_t *canvas = (lv_obj_t *)parms[0];
-    lv_obj_t *inf_lbl = (lv_obj_t *)parms[1];
-    lv_obj_t *miniplotcanvas = (lv_obj_t *)parms[2];
-    lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)parms[3];
-    lv_obj_t *minimapcanvas = (lv_obj_t *)parms[4];
+    lv_obj_t **maze_parms = (lv_obj_t **)pvParameters;
+    lv_obj_t *canvas = (lv_obj_t *)maze_parms[0];
+    lv_obj_t *inf_lbl = (lv_obj_t *)maze_parms[1];
+    lv_obj_t *miniplotcanvas = (lv_obj_t *)maze_parms[2];
+    lv_obj_t *gyrominiplotcanvas = (lv_obj_t *)maze_parms[3];
+    lv_obj_t *minimapcanvas = (lv_obj_t *)maze_parms[4];
 
     vTaskSuspend(NULL);
 
@@ -148,13 +148,15 @@ void maze_task(void *pvParameters)
     {
         long ticks = xTaskGetTickCount();
         long update_delta = ticks - last_move_ticks;
-        bool moved = false;
         int y_new_cell, x_new_cell;
+        bool moved = false;
 
         if (update_delta > get_sensitivity())
         {
             last_move_ticks = ticks;
+            moved = false;
 
+/*
             xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
 
             int inf = buffer_infer(
@@ -165,6 +167,9 @@ void maze_task(void *pvParameters)
                 gy_buf,
                 gz_buf);
             xSemaphoreGive(xImuSemaphore);
+            */
+
+            int inf = get_latest_inf();
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
@@ -199,23 +204,37 @@ void maze_task(void *pvParameters)
             }
             xSemaphoreGive(xGuiSemaphore);
 
+            int move_dir = map_projection;
+            if (map_projection == EAST_DIR)
+                move_dir = WEST_DIR;
+            else if (map_projection == WEST_DIR)
+                move_dir = EAST_DIR;
             switch (inf)
             {
             case FORWARD_LABEL:
                 ESP_LOGI(TAG, "Moving %d", inf);
-                int move_dir = map_projection;
-                if (map_projection == EAST_DIR)
-                    move_dir = WEST_DIR;
-                else if (map_projection == WEST_DIR)
-                    move_dir = EAST_DIR;
-                moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case BACKWARD_LABEL:
                 ESP_LOGI(TAG, "Moving %d", inf);
-                int back_dir = (map_projection - 2) % 4;
-                moved = can_move(TEST_MAZE, 14, 14, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, back_dir);
+                move_dir = (move_dir - 2) % 4;
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                if (!moved)
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
+                break;
+            case LEFTSIDE_LABEL:
+                ESP_LOGI(TAG, "Moving %d", inf);
+                move_dir = (move_dir+4 - 1) % 4;
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                if (!moved)
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
+                break;
+            case RIGHTSIDE_LABEL:
+                ESP_LOGI(TAG, "Moving %d", inf);
+                move_dir = (move_dir + 1) % 4;
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
@@ -244,7 +263,7 @@ void maze_task(void *pvParameters)
         if (redraw_dir)
         {
             redraw_dir = false;
-            draw_maze(canvas, TEST_MAZE, 14, 14, map_projection, x_current_cell, y_current_cell);
+            draw_maze(canvas, TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);
             int x_pos, y_pos;
             get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 5, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
@@ -286,8 +305,8 @@ void maze_task(void *pvParameters)
             last_test_y = op_y;
         }
         xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-        draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
-        draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        //draw_3_plot(miniplotcanvas, &scale_acc, ax_buf, ay_buf, az_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
+        //draw_3_plot(gyrominiplotcanvas, &scale_gyro, gx_buf, gy_buf, gz_buf, MINI_PLOT_HEIGHT, MINI_PLOT_WIDTH, MINI_PLOT_NUM);
         xSemaphoreGive(xImuSemaphore);
 
         xSemaphoreGive(xGuiSemaphore);
