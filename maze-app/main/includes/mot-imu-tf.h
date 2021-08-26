@@ -7,7 +7,6 @@ extern "C"
 {
 #endif
 
-#define UNCERTAIN_LABEL -1
 #define REST_LABEL 0
 #define FORWARD_LABEL 1
 #define BACKWARD_LABEL 2
@@ -17,14 +16,14 @@ extern "C"
 #define DOWN_LABEL 6
 #define LEFTSIDE_LABEL 7
 #define RIGHTSIDE_LABEL 8
+#define UNCERTAIN_LABEL 9
 
-#define NUM_CLASSES 9
+#define NUM_CLASSES 10
 
     TaskHandle_t mot_imu_handle;
 
     void init_mot_imu(void);
     void mot_imu_task(void *pvParameters);
-    int infer(float **a_samples, float **g_samples, int a_size, int g_size);
     int buffer_infer(void *ax,
                      void *ay,
                      void *az,
@@ -39,7 +38,7 @@ extern "C"
                      void *gy,
                      void *gz,
                      float *buf);
-    int get_latest_inf();
+    int get_latest_inf(int n_last);
 #ifdef __cplusplus
 }
 #endif

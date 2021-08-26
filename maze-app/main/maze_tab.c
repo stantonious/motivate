@@ -37,16 +37,11 @@ static lv_color_t *miniplotbuf;
 static lv_color_t *gyrominiplotbuf;
 static const char *TAG = MAZE_TAB_NAME;
 
-static float **abuf = NULL;
-static float **gbuf = NULL;
-
 static int x_current_cell = 0;
 static int y_current_cell = 13;
 static uint map_projection = NORTH_DIR;
 
 static bool redraw_dir = true;
-
-static long last_move_ticks = 0;
 
 static int8_t last_test_x = -1;
 static int8_t last_test_y = -1;
@@ -71,13 +66,6 @@ static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
 
 void display_maze_tab(lv_obj_t *tv)
 {
-    abuf = (float **)malloc(3 * sizeof(float *));
-    for (int i = 0; i < 3; i++)
-        abuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
-    gbuf = (float **)malloc(3 * sizeof(float *));
-    for (int i = 0; i < 3; i++)
-        gbuf[i] = (float *)malloc(BUFSIZE * sizeof(float));
-
     xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
     lv_obj_t *test_tab = lv_tabview_add_tab(tv, MAZE_TAB_NAME); // Create a tab
 
@@ -135,6 +123,9 @@ float step_coefs[] = {.2, .2, .2, .2, .2};
 void maze_task(void *pvParameters)
 {
 
+    long last_move_ticks = 0;
+    long last_turn_ticks = 0;
+
     lv_obj_t **maze_parms = (lv_obj_t **)pvParameters;
     lv_obj_t *canvas = (lv_obj_t *)maze_parms[0];
     lv_obj_t *inf_lbl = (lv_obj_t *)maze_parms[1];
@@ -148,28 +139,43 @@ void maze_task(void *pvParameters)
     {
         long ticks = xTaskGetTickCount();
         long update_delta = ticks - last_move_ticks;
+        long turn_delta = ticks - last_turn_ticks;
         int y_new_cell, x_new_cell;
         bool moved = false;
 
-        if (update_delta > get_sensitivity())
+        if (turn_delta > get_turn_sensitivity())
+        {
+            last_turn_ticks = ticks;
+
+            int inf = get_latest_inf(4);
+
+            xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+            switch (inf)
+            {
+            case LEFT_LABEL:
+                lv_label_set_text(inf_lbl, "Left ");
+                ESP_LOGI(TAG, "Moving %d", inf);
+                map_projection = (map_projection + 1) % 4;
+                ESP_LOGI(TAG, "new current dir  %d", map_projection);
+                redraw_dir = true;
+                break;
+            case RIGHT_LABEL:
+                lv_label_set_text(inf_lbl, "Right ");
+                ESP_LOGI(TAG, "Moving %d", inf);
+                map_projection = (map_projection + 4 - 1) % 4;
+                ESP_LOGI(TAG, "new current dir  %d", map_projection);
+                redraw_dir = true;
+                break;
+            }
+            xSemaphoreGive(xGuiSemaphore);
+        }
+
+        if (update_delta > get_move_sensitivity())
         {
             last_move_ticks = ticks;
             moved = false;
 
-/*
-            xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-
-            int inf = buffer_infer(
-                ax_buf,
-                ay_buf,
-                az_buf,
-                gx_buf,
-                gy_buf,
-                gz_buf);
-            xSemaphoreGive(xImuSemaphore);
-            */
-
-            int inf = get_latest_inf();
+            int inf = get_latest_inf(4);
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
@@ -195,11 +201,8 @@ void maze_task(void *pvParameters)
             case RIGHT_LABEL:
                 lv_label_set_text(inf_lbl, "Right ");
                 break;
-            case LEFTSIDE_LABEL:
-                lv_label_set_text(inf_lbl, "Left Side ");
-                break;
-            case RIGHTSIDE_LABEL:
-                lv_label_set_text(inf_lbl, "Right Side");
+            case UNCERTAIN_LABEL:
+                lv_label_set_text(inf_lbl, "???");
                 break;
             }
             xSemaphoreGive(xGuiSemaphore);
@@ -218,37 +221,40 @@ void maze_task(void *pvParameters)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case BACKWARD_LABEL:
+                if (!get_back())
+                {
+                    ESP_LOGI(TAG, "Back not enabled");
+                    break;
+                }
                 ESP_LOGI(TAG, "Moving %d", inf);
-                move_dir = (move_dir - 2) % 4;
+                move_dir = (move_dir + 4 - 2) % 4;
                 moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case LEFTSIDE_LABEL:
+                if (!get_side())
+                {
+                    ESP_LOGI(TAG, "Side not enabled");
+                    break;
+                }
                 ESP_LOGI(TAG, "Moving %d", inf);
-                move_dir = (move_dir+4 - 1) % 4;
+                move_dir = (move_dir + 4 - 1) % 4;
                 moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case RIGHTSIDE_LABEL:
+                if (!get_side())
+                {
+                    ESP_LOGI(TAG, "Side not enabled");
+                    break;
+                }
                 ESP_LOGI(TAG, "Moving %d", inf);
                 move_dir = (move_dir + 1) % 4;
                 moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
-                break;
-            case LEFT_LABEL:
-                ESP_LOGI(TAG, "Moving %d", inf);
-                map_projection = (map_projection + 1) % 4;
-                ESP_LOGI(TAG, "new current dir  %d", map_projection);
-                redraw_dir = true;
-                break;
-            case RIGHT_LABEL:
-                ESP_LOGI(TAG, "Moving %d", inf);
-                map_projection = (map_projection - 1) % 4;
-                ESP_LOGI(TAG, "new current dir  %d", map_projection);
-                redraw_dir = true;
                 break;
             case UP_LABEL:
                 ESP_LOGI(TAG, "Moving %d", inf);

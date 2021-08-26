@@ -29,13 +29,14 @@ void get_next_cell(int x_from, int y_from, int *x_to, int *y_to, int dir)
 bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, int x_from, int y_from, int *x_to, int *y_to, int dir)
 {
 
+    get_next_cell(x_from, y_from, x_to, y_to, dir);
+    
     if (*x_to >= x_maze_len ||
         *y_to >= y_maze_len ||
         *x_to < 0 ||
         *y_to < 0)
         return false;
 
-    get_next_cell(x_from, y_from, x_to, y_to, dir);
 
     if (dir == NORTH_DIR && maze[y_from][x_from] & NORTH_BIT)
         return false;

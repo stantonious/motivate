@@ -14,8 +14,26 @@
 
 #include "game_tab.h"
 
-static int16_t game_move_sensitivity = 0;
+static int16_t game_move_sensitivity = 80;
+static int16_t game_turn_sensitivity = 80;
+static bool use_back = true;
+static bool use_side = true;
 
+static void back_ev(lv_obj_t * obj, lv_event_t event)
+{
+    printf(" changing sense  %d",event);
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        use_back = lv_checkbox_get_state(obj);
+    }
+}
+
+static void side_ev(lv_obj_t * obj, lv_event_t event)
+{
+    printf(" changing sense  %d",event);
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        use_side = lv_checkbox_get_state(obj);
+    }
+}
 static void event_handler(lv_obj_t * obj, lv_event_t event)
 {
     printf(" changing sense  %d",event);
@@ -25,9 +43,34 @@ static void event_handler(lv_obj_t * obj, lv_event_t event)
     }
 }
 
-int16_t get_sensitivity()
+static void event_handler_turn(lv_obj_t * obj, lv_event_t event)
+{
+    printf(" changing sense  %d",event);
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        game_turn_sensitivity = 100 - lv_slider_get_value(obj);
+        printf(" changing sense to %d",game_turn_sensitivity);
+    }
+}
+
+
+int16_t get_move_sensitivity()
 {
     return game_move_sensitivity;
+}
+
+int16_t get_turn_sensitivity()
+{
+    return game_turn_sensitivity;
+}
+
+bool get_side()
+{
+    return use_side;
+}
+
+bool get_back()
+{
+    return use_back;
 }
 
 void display_game_tab(lv_obj_t *tv)
@@ -51,12 +94,29 @@ void display_game_tab(lv_obj_t *tv)
 
      /*Create a slider*/
     lv_obj_t *s_lbl = lv_label_create(cont, NULL);
-    lv_label_set_text_fmt(s_lbl, "Sensitivity");
+    lv_label_set_text_fmt(s_lbl, "Turn/Move Sens");
     lv_obj_align(s_lbl, NULL, LV_ALIGN_IN_LEFT_MID, 0, 0);
     lv_obj_t * move_sensitivity_slider = lv_slider_create(cont, NULL);
     lv_obj_align(move_sensitivity_slider, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_event_cb(move_sensitivity_slider, event_handler);
-    lv_slider_set_range(move_sensitivity_slider, 20 , 90);
+    lv_slider_set_range(move_sensitivity_slider, -20 , 90);
+    lv_slider_set_value(move_sensitivity_slider,100-game_move_sensitivity,LV_ANIM_OFF);
+
+    lv_obj_t * turn_sensitivity_slider = lv_slider_create(cont, NULL);
+    lv_obj_align(turn_sensitivity_slider, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(turn_sensitivity_slider, event_handler_turn);
+    lv_slider_set_range(turn_sensitivity_slider, -20 , 90);
+    lv_slider_set_value(turn_sensitivity_slider,100-game_turn_sensitivity,LV_ANIM_OFF);
+
+     lv_obj_t * b_cb = lv_checkbox_create(cont, NULL);
+    lv_checkbox_set_text(b_cb, "Back");
+    lv_obj_align(b_cb, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(b_cb, back_ev);
+
+     lv_obj_t * s_cb = lv_checkbox_create(cont,NULL);
+    lv_checkbox_set_text(s_cb, "Side");
+    lv_obj_align(s_cb, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(s_cb, side_ev);
 
     lv_obj_t *table = lv_table_create(cont, NULL);
     lv_table_set_col_cnt(table, 2);

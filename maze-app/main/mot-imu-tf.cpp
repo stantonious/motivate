@@ -27,6 +27,7 @@ static const int g_max = 90;
 static const int a_min = -1;
 static const int a_max = 1;
 
+#define INF_THRESH .8
 #define INF_SIZE 10
 static CircularBuffer<int16_t, INF_SIZE> inf_cb;
 static CircularBuffer<float, INF_SIZE> conf_cb;
@@ -101,11 +102,11 @@ void init_mot_imu(void)
   xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096, NULL, 1, &mot_imu_handle, 0);
 }
 
-float get_max_idx_cb(CircularBuffer<float, INF_SIZE> &buf,int lastn)
+float get_max_idx_cb(CircularBuffer<float, INF_SIZE> &buf, int lastn)
 {
   int max_idx = 0;
-  float max = buf[buf.size()-1];
-  for (int i = buf.size()-2; i >= buf.size()-lastn && i >= 0 ; i--)
+  float max = buf[buf.size() - 1];
+  for (int i = buf.size() - 2; i >= buf.size() - lastn && i >= 0; i--)
   {
     if (buf[i] > max)
     {
@@ -139,67 +140,6 @@ int get_max_idx(float *f, int n)
   }
   return max_idx;
 }
-int infer(float **a_samples, float **g_samples, int a_size, int g_size)
-{
-
-  // Place our calculated x value in the model's input tensor
-  for (int i = 0; i < 10; i++)
-  {
-    for (int j = 0; j < 3; j++)
-    {
-      int8_t quant_val = (a_samples[j][i] - a_min) / (a_max - a_min) * 255 / input->params.scale + input->params.zero_point;
-      int8_t *d_i = tflite::GetTensorData<int8>(input);
-      d_i[i * 6 + j] = quant_val;
-      //input->data.uint8[i * 6 + j] = (test[i][j]-a_min)/(a_max-a_min) * 255;
-    }
-  }
-
-  for (int i = 0; i < 10; i++)
-  {
-    for (int j = 3; j < 6; j++)
-    {
-      int8_t quant_val = (g_samples[j - 3][i] - g_min) / (g_max - g_min) * 255 / input->params.scale + input->params.zero_point;
-      int8_t *d_i = tflite::GetTensorData<int8>(input);
-      d_i[i * 6 + j] = quant_val;
-      //input->data.uint8[i * 6 + j] = (test[i][j]-g_min)/(g_max-g_min) * 255;
-    }
-  }
-
-  // Run inference, and report any error
-  TfLiteStatus invoke_status = interpreter->Invoke();
-  if (invoke_status != kTfLiteOk)
-  {
-    TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed on x_val: %f\n", 0.);
-    return -1;
-  }
-
-  static float thresh = .6;
-  // Read the predicted y value from the model's output tensor
-  float dequant[NUM_CLASSES] = {
-      (output->data.int8[0] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[1] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[2] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[3] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[4] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[5] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[6] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[7] - output->params.zero_point) * output->params.scale,
-      (output->data.int8[8] - output->params.zero_point) * output->params.scale,
-  };
-
-  float max_conf = get_max(dequant, NUM_CLASSES);
-
-  if (max_conf < thresh)
-  {
-    //ESP_LOGI(TAG, "confidence too low return 0");
-    return -1;
-  }
-
-  //ESP_LOGI(TAG, "BWS ============== out 1 %f", dequant[0]);
-  //ESP_LOGI(TAG, "BWS ============== out 2 %f", dequant[1]);
-  //ESP_LOGI(TAG, "BWS ============== out 3 %f", dequant[2]);
-  return get_max_idx(dequant, NUM_CLASSES);
-}
 
 int buffer_infer(void *ax,
                  void *ay,
@@ -208,9 +148,9 @@ int buffer_infer(void *ax,
                  void *gy,
                  void *gz)
 {
-  static float thresh = .6;
+  static float thresh = .8;
   static float confs_buf[NUM_CLASSES];
-  buffer_confs(ax, ay, az, gx, gy, gz,confs_buf);
+  buffer_confs(ax, ay, az, gx, gy, gz, confs_buf);
 
   float max_conf = get_max(confs_buf, NUM_CLASSES);
 
@@ -283,13 +223,13 @@ int buffer_confs(void *ax,
   buf[7] = (output->data.int8[7] - output->params.zero_point) * output->params.scale;
   buf[8] = (output->data.int8[8] - output->params.zero_point) * output->params.scale;
 
-return 0;
+  return 0;
 }
 
 void mot_imu_task(void *pvParameters)
 {
 
-float confs[NUM_CLASSES];
+  float confs[NUM_CLASSES];
   for (;;)
   {
 
@@ -326,19 +266,29 @@ float conv_coefs[INF_SIZE] = {
     1.,
     .5};
 
-int get_latest_inf()
+int get_latest_inf(int n_last)
 {
+
+  /*
   xSemaphoreTake(xInfSemaphore, portMAX_DELAY);
   int res = get_max_idx_cb(conf_cb,3);
   xSemaphoreGive(xInfSemaphore);
   return res;
-  /*
-  for (int i=0;i<INF_SIZE;i++)
-  {
-    int class_idx = inf_cb[i];
-    if (class_idx < 0)continue;
-
-    res[class_idx] += 1 * conv_coefs[i];
-  }
   */
+  float res[NUM_CLASSES];
+
+  for (int i = 0; i < NUM_CLASSES; i++)
+  {
+    res[i] = 0.;
+  }
+
+  for (int i = INF_SIZE - 1; i >= 0 && i >= INF_SIZE - n_last; i--)
+  {
+    int idx = inf_cb[i];
+    res[idx] += conf_cb[i];
+  }
+
+  float max_conf = get_max(res,NUM_CLASSES);
+  if (max_conf < INF_THRESH) return UNCERTAIN_LABEL;
+  return get_max_idx(res, NUM_CLASSES);
 }

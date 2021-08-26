@@ -9,6 +9,7 @@
         "maze.h": "c",
         "imu_task.h": "c",
         "maze_tab.h": "c",
-        "plots.h": "c"
+        "plots.h": "c",
+        "stdio.h": "c"
     }
 }
