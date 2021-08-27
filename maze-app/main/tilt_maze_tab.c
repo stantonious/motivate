@@ -144,10 +144,10 @@ int get_tilt_move(
     if (fabs(x_conv) < TILT_THRESH && fabs(y_conv) < TILT_THRESH)
         return -1;
 
-    bool can_move_n = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, NORTH_DIR);
-    bool can_move_s = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, SOUTH_DIR);
-    bool can_move_e = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, EAST_DIR);
-    bool can_move_w = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, WEST_DIR);
+    bool can_move_n = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, NORTH_DIR,false,false);
+    bool can_move_s = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, SOUTH_DIR,false,false);
+    bool can_move_e = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, EAST_DIR,false,false);
+    bool can_move_w = can_move(TEST_MAZE, x_maze_len, y_maze_len, x_from, y_from, &x_test, &y_test, WEST_DIR,false,false);
 
     if (fabs(x_conv) > fabs(y_conv))
     {

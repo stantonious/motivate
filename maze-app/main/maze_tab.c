@@ -38,7 +38,7 @@ static lv_color_t *gyrominiplotbuf;
 static const char *TAG = MAZE_TAB_NAME;
 
 static int x_current_cell = 0;
-static int y_current_cell = 13;
+static int y_current_cell = 0;
 static uint map_projection = NORTH_DIR;
 
 static bool redraw_dir = true;
@@ -46,8 +46,9 @@ static bool redraw_dir = true;
 static int8_t last_test_x = -1;
 static int8_t last_test_y = -1;
 
+/*
 static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
-    {13, 11, 3, 1, 3, 3, 3, 3, 3, 20, 9, 3, 5, 13},
+    {13, 11, 3, 1, 3, 3, 3, 3, 3, 68, 9, 3, 5, 13},
     {10, 3, 3, 6, 9, 7, 9, 3, 5, 10, 6, 13, 10, 4},
     {9, 1, 7, 9, 2, 3, 6, 13, 8, 3, 5, 8, 3, 6},
     {12, 10, 3, 6, 9, 5, 9, 4, 10, 5, 14, 10, 3, 5},
@@ -59,10 +60,26 @@ static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
     {9, 5, 9, 1, 5, 12, 12, 12, 13, 9, 6, 11, 3, 4},
     {12, 10, 6, 12, 14, 12, 12, 8, 6, 10, 3, 3, 5, 12},
     {10, 3, 5, 12, 9, 6, 10, 6, 9, 3, 5, 9, 6, 12},
-    {9, 7, 12, 12, 12, 9, 3, 5, 12, 9, 6, 10, 5, 12},
-    {24, 3, 6, 10, 2, 6, 11, 2, 6, 10, 3, 3, 6, 14}
+    {9, 167, 12, 12, 12, 9, 3, 5, 12, 9, 6, 10, 5, 12},
+    {104, 131, 214, 250, 2, 6, 11, 2, 6, 10, 3, 3, 6, 14}
 
 };
+*/
+static int TEST_MAZE[MAZE_HEIGHT][MAZE_LEN] = {
+    {155, 181, 9, 3, 3, 3, 3, 7, 9, 3, 3, 3, 1, 5}, 
+    {13, 12, 8, 5, 9, 5, 9, 3, 6, 9, 1, 7, 12, 12}, 
+    {12, 12, 174, 10, 6, 10, 2, 3, 3, 4, 14, 9, 6, 12}, 
+    {12, 10, 131, 3, 3, 3, 5, 11, 3, 6, 9, 6, 13, 12}, 
+    {8, 3, 1, 3, 147, 181, 12, 9, 3, 5, 12, 13, 8, 6}, 
+    {12, 13, 10, 3, 5, 14, 10, 6, 13, 12, 12, 10, 2, 5}, 
+    {12, 10, 1, 5, 10, 3, 145, 179, 4, 12, 10, 5, 9, 6}, 
+    {10, 3, 6, 12, 11, 5, 10, 5, 14, 10, 3, 6, 12, 13}, 
+    {9, 3, 5, 10, 3, 0, 7, 12, 153, 179, 3, 3, 6, 12}, 
+    {10, 5, 10, 3, 3, 4, 9, 4, 12, 11, 1, 5, 9, 6}, 
+    {13, 12, 9, 3, 5, 14, 12, 14, 12, 9, 166, 12, 8, 5}, 
+    {8, 6, 10, 5, 10, 3, 6, 9, 6, 12, 137, 6, 14, 12}, 
+    {2, 3, 5, 12, 9, 3, 5, 12, 11, 4, 12, 9, 147, 180}, 
+    {9, 3, 6, 10, 2, 7, 10, 2, 3, 6, 10, 6, 11, 6}};
 
 void display_maze_tab(lv_obj_t *tv)
 {
@@ -216,7 +233,7 @@ void maze_task(void *pvParameters)
             {
             case FORWARD_LABEL:
                 ESP_LOGI(TAG, "Moving %d", inf);
-                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir,false,false);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
@@ -228,7 +245,7 @@ void maze_task(void *pvParameters)
                 }
                 ESP_LOGI(TAG, "Moving %d", inf);
                 move_dir = (move_dir + 4 - 2) % 4;
-                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir,false,false);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
@@ -240,7 +257,7 @@ void maze_task(void *pvParameters)
                 }
                 ESP_LOGI(TAG, "Moving %d", inf);
                 move_dir = (move_dir + 4 - 1) % 4;
-                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir,false,false);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
@@ -252,15 +269,21 @@ void maze_task(void *pvParameters)
                 }
                 ESP_LOGI(TAG, "Moving %d", inf);
                 move_dir = (move_dir + 1) % 4;
-                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir,false,false);
                 if (!moved)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case UP_LABEL:
                 ESP_LOGI(TAG, "Moving %d", inf);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir,true,false);
+                if (!moved)
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case DOWN_LABEL:
                 ESP_LOGI(TAG, "Moving %d", inf);
+                moved = can_move(TEST_MAZE, MAZE_LEN, MAZE_HEIGHT, x_current_cell, y_current_cell, &x_new_cell, &y_new_cell, move_dir,false,true);
+                if (!moved)
+                    ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             }
         }

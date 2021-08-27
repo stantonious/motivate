@@ -16,8 +16,8 @@
 
 static int16_t game_move_sensitivity = 80;
 static int16_t game_turn_sensitivity = 80;
-static bool use_back = true;
-static bool use_side = true;
+static bool use_back = false;
+static bool use_side = false;
 
 static void back_ev(lv_obj_t * obj, lv_event_t event)
 {
