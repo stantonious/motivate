@@ -9,6 +9,8 @@
 #include "esp_netif.h"
 #include "esp_tls.h"
 #include "esp_crt_bundle.h"
+#include "cJSON.h"
+#include "esp_log.h"
 
 #include "esp_http_client.h"
 #include "maze_client.h"
@@ -16,11 +18,36 @@
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_OUTPUT_BUFFER 2048
 static const char *TAG = "MAZE CLIENT";
-static char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
+static char *local_response_buffer = NULL;
+
+extern const uint8_t root_CA_crt_start[] asm("_binary_root_CA_crt_start");
+extern const uint8_t root_CA_crt_end[] asm("_binary_root_CA_crt_end");
+extern const uint32_t root_CA_crt_length;
+
+extern const uint8_t mot0_device_pem_start[] asm("_binary_mot0_device_pem_start");
+extern const uint8_t mot0_device_pem_end[] asm("_binary_mot0_device_pem_end");
+extern const uint32_t mot0_device_pem_length;
+
+extern const uint8_t mot0_public_pem_start[] asm("_binary_mot0_public_pem_start");
+extern const uint8_t mot0_public_pem_end[] asm("_binary_mot0_public_pem_end");
+extern const uint32_t mot0_public_pem_length;
+
+extern const uint8_t mot0_private_pem_start[] asm("_binary_mot0_private_pem_start");
+extern const uint8_t mot0_private_pem_end[] asm("_binary_mot0_private_pem_end");
+extern const uint32_t mot0_private_pem_length;
 
 void maze_client_init(void)
 {
-    xTaskCreatePinnedToCore(maze_client_task, "MazeClientTask", 2048, NULL, 1, &MazeClientHandle, 1);
+    local_response_buffer = malloc(sizeof(char) * MAX_HTTP_OUTPUT_BUFFER);
+    bzero(local_response_buffer, MAX_HTTP_OUTPUT_BUFFER);
+    esp_err_t esp_ret = esp_tls_set_global_ca_store(root_CA_crt_start, root_CA_crt_length + 1);
+    if (esp_ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Error in setting the global ca store: [%02X] (%s),could not complete the https_request using global_ca_store", esp_ret, esp_err_to_name(esp_ret));
+        return;
+    }
+
+    //    xTaskCreatePinnedToCore(maze_client_task, "MazeClientTask", 2048, NULL, 1, &MazeClientHandle, 1);
 }
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -51,7 +78,9 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             // If user_data buffer is configured, copy the response into the buffer
             if (evt->user_data)
             {
+        ESP_LOGI(TAG, "copying to user_data");
                 memcpy(evt->user_data + output_len, evt->data, evt->data_len);
+                //(char*)(evt->user_data)[evt->data_len] = '\0';
             }
             else
             {
@@ -102,7 +131,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-void maze_client_task(void *pvParameters)
+void get_maze(int x, int y, int m[][x])
 {
 
     /**
@@ -113,12 +142,11 @@ void maze_client_task(void *pvParameters)
      * If URL as well as host and path parameters are specified, values of host and path will be considered.
      */
     esp_http_client_config_t config = {
-        .host = "httpbin.org",
-        .path = "/get",
-        .query = "esp",
+        //.url = "http://dl3to8c26ssxq.cloudfront.net/production/maze?x=14&y=14",
+        .url = "http://dl3to8c26ssxq.cloudfront.net/production/maze?id=1630337075",
         .event_handler = _http_event_handler,
         .user_data = local_response_buffer, // Pass address of local buffer to get response
-        .disable_auto_redirect = true,
+        .use_global_ca_store = true,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
@@ -134,11 +162,34 @@ void maze_client_task(void *pvParameters)
     {
         ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
     }
-    ESP_LOGI(TAG,"buff before");
+    ESP_LOGI(TAG, "buff before");
     ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
-    ESP_LOGI(TAG,"buff %s",local_response_buffer);
-    ESP_LOGI(TAG,"buff after");
+    ESP_LOGI(TAG, "buff %s", local_response_buffer);
+    ESP_LOGI(TAG, "buff after");
+    int length = esp_http_client_get_content_length(client);
 
+    local_response_buffer[length] = '\0';
+
+    cJSON *maze = cJSON_Parse(local_response_buffer);
+
+    cJSON *d = cJSON_GetObjectItemCaseSensitive(maze, "cells");
+
+    bool isarray = cJSON_IsArray(d);
+
+    cJSON *n_row;
+    int r = 0;
+    cJSON_ArrayForEach(n_row, d)
+    {
+
+        int c = 0;
+        cJSON *n_val;
+        cJSON_ArrayForEach(n_val, n_row)
+        {
+            m[r][c++] = n_val->valueint;
+        }
+        r += 1;
+    }
+
+    cJSON_Delete(maze);
     esp_http_client_cleanup(client);
-    vTaskDelete(NULL);
 }

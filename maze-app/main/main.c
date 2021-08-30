@@ -74,8 +74,12 @@ void app_main(void)
         lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
         xSemaphoreGive(xGuiSemaphore);
        
+        maze_client_init();
+        get_maze(MAZE_HEIGHT,MAZE_LEN,MAZE);
+        ESP_LOGI(TAG, "maze %d", MAZE[0][0]);
+
         mot_mqtt_client_init();
-    //TODO maze_client_init();
+
     }else{
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         static const char *btns[] = {"Close", ""};
