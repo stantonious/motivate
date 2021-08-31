@@ -319,6 +319,8 @@ void maze_task(void *pvParameters)
             draw_maze(canvas, MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);
             get_status_pos_from_cell(x_new_cell, y_new_cell, map_projection, &x_new_pos, &y_new_pos, x_new_cell, y_new_cell);
             draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
+
+            send_position(x_new_cell,y_new_cell,time(NULL));
         }
 
         int8_t op_x = 0;

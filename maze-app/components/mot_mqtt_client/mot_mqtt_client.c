@@ -12,7 +12,12 @@
 #include "cJSON.h"
 #include <sys/param.h>
 
+#include "core2forAWS.h"
 #include "mot_mqtt_client.h"
+
+#define CLIENT_ID_LEN (ATCA_SERIAL_NUM_SIZE * 2)
+#define SUBSCRIBE_TOPIC_LEN (CLIENT_ID_LEN + 3)
+#define JSON_BUFSIZE 1024 * 2
 
 static const char *TAG = "MOT_MQTT_CLIENT";
 static const char *CONFIG_BROKER_URI = "mqtts://ahdizksxaeeun-ats.iot.us-east-2.amazonaws.com:8883";
@@ -37,11 +42,10 @@ static int8_t op_y = -1;
 
 static esp_mqtt_client_handle_t glb_client;
 
-static const char *CLIENT_ID = "basicPubSub";
-
 static bool is_inited = false;
-#define JSON_BUFSIZE 1024 * 2
 static const char *json_buf = NULL;
+static const char *game_topic = "motivate/game/1630337075";
+static char mot_client_id[CLIENT_ID_LEN + 1];
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -53,7 +57,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        msg_id = esp_mqtt_client_subscribe(client, "topic_1", 0);
+        msg_id = esp_mqtt_client_subscribe(client, game_topic, 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
         break;
@@ -87,19 +91,28 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         }
         else
         {
-            cJSON *message = cJSON_GetObjectItemCaseSensitive(message_json, "message");
+            cJSON *id = cJSON_GetObjectItemCaseSensitive(message_json, "id");
+            cJSON *time = cJSON_GetObjectItemCaseSensitive(message_json, "time");
             cJSON *x = cJSON_GetObjectItemCaseSensitive(message_json, "x");
             cJSON *y = cJSON_GetObjectItemCaseSensitive(message_json, "y");
-            printf("x =%d y = %d\r\n", x->valueint, y->valueint);
 
-            if (x == NULL || y == NULL)
+            if (strcmp(id->valuestring, mot_client_id) != 0)
             {
-                printf("x and y must be provided!");
+                printf("x =%d y = %d\r\n", x->valueint, y->valueint);
+
+                if (x == NULL || y == NULL)
+                {
+                    printf("x and y must be provided!");
+                }
+                else
+                {
+                    op_x = x->valueint;
+                    op_y = y->valueint;
+                }
             }
             else
             {
-                op_x = x->valueint;
-                op_y = y->valueint;
+                ESP_LOGI(TAG, "Ignoring self position");
             }
             cJSON_Delete(message_json);
         }
@@ -131,6 +144,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 void mot_mqtt_client_init(void)
 {
+    ATCA_STATUS ret = Atecc608_GetSerialString(mot_client_id);
+
+    if (ret != ATCA_SUCCESS)
+    {
+        printf("Failed to get device serial from secure element. Error: %i", ret);
+        abort();
+    }
+
+    ESP_LOGI(TAG, "Client ID:%s", mot_client_id);
     json_buf = malloc(JSON_BUFSIZE);
     esp_err_t esp_ret = ESP_FAIL;
 
@@ -147,7 +169,7 @@ void mot_mqtt_client_init(void)
         .client_key_pem = (const char *)mot0_private_pem_start,
         .protocol_ver = MQTT_PROTOCOL_V_3_1_1,
         .use_global_ca_store = true,
-        .client_id = CLIENT_ID};
+        .client_id = mot_client_id};
 
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     glb_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -192,6 +214,25 @@ void fdump(float **buf, int m)
             ESP_LOGI("FLOATBUF", "i:%d,j:%d,v:%f\n", i, j, buf[i][j]);
         }
     }
+}
+void send_position(int x, int y, unsigned time)
+{
+    cJSON *pos = cJSON_CreateObject();
+    cJSON *ltime = cJSON_CreateNumber(time);
+    cJSON *id = cJSON_CreateString(mot_client_id);
+    cJSON *pos_x = cJSON_CreateNumber(x);
+    cJSON *pos_y = cJSON_CreateNumber(y);
+
+    cJSON_AddItemToObject(pos, "time", ltime);
+    cJSON_AddItemToObject(pos, "id", id);
+    cJSON_AddItemToObject(pos, "x", pos_x);
+    cJSON_AddItemToObject(pos, "y", pos_y);
+
+    cJSON_PrintPreallocated(pos, json_buf, JSON_BUFSIZE, false);
+    int pub_ret = esp_mqtt_client_publish(glb_client, game_topic, json_buf, 0, 1, 0);
+    //ESP_LOGI(TAG, "Publishing of =%s returned=%d", out, pub_ret);
+
+    cJSON_Delete(pos);
 }
 void send_sample(char *topic, float **a_samples, float **g_samples, int a_size, int g_size, int type, unsigned time)
 {
