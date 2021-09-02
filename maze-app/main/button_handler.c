@@ -14,6 +14,7 @@
 
 #include "button_handler.h"
 #include "train_tab.h"
+#include "maze_tab.h"
 
 static const char *TAG = "BUTTON_HANDLER";
 
@@ -57,6 +58,7 @@ void button_handler_task(void *pvParameters)
             lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
             xSemaphoreGive(xGuiSemaphore);
             */
+           infer = !infer;
         }
         if (Button_WasPressed(button_middle))
         {

@@ -45,6 +45,7 @@ static esp_mqtt_client_handle_t glb_client;
 static bool is_inited = false;
 static const char *json_buf = NULL;
 static const char *game_topic = "motivate/game/1630337075";
+static const char *train_topic = "motivate/train";
 static char mot_client_id[CLIENT_ID_LEN + 1];
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -189,7 +190,6 @@ void mot_mqtt_client_init(void)
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 
     esp_mqtt_client_start(glb_client);
-    ESP_LOGI(TAG, "glb_client %p", glb_client);
     is_inited = true;
 }
 
@@ -217,6 +217,11 @@ void fdump(float **buf, int m)
 }
 void send_position(int x, int y, unsigned time)
 {
+    if (!is_inited)
+    {
+        ESP_LOGW(TAG, "MQTT NOT INITED!!!");
+        return;
+    }
     cJSON *pos = cJSON_CreateObject();
     cJSON *ltime = cJSON_CreateNumber(time);
     cJSON *id = cJSON_CreateString(mot_client_id);
@@ -234,7 +239,7 @@ void send_position(int x, int y, unsigned time)
 
     cJSON_Delete(pos);
 }
-void send_sample(char *topic, float **a_samples, float **g_samples, int a_size, int g_size, int type, unsigned time)
+void send_sample(float **a_samples, float **g_samples, int a_size, int g_size, int type, unsigned time)
 {
     if (!is_inited)
     {
@@ -282,7 +287,7 @@ void send_sample(char *topic, float **a_samples, float **g_samples, int a_size, 
     ESP_LOGI(TAG, "sample add done");
 
     cJSON_PrintPreallocated(sample, json_buf, JSON_BUFSIZE, false);
-    int pub_ret = esp_mqtt_client_publish(glb_client, "topic_2", json_buf, 0, 1, 0);
+    int pub_ret = esp_mqtt_client_publish(glb_client, train_topic, json_buf, 0, 1, 0);
     //ESP_LOGI(TAG, "Publishing of =%s returned=%d", out, pub_ret);
 
     cJSON_Delete(sample);

@@ -78,7 +78,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             // If user_data buffer is configured, copy the response into the buffer
             if (evt->user_data)
             {
-        ESP_LOGI(TAG, "copying to user_data");
+        ESP_LOGI(TAG, "copying to user_data %s",(char*)evt->data);
                 memcpy(evt->user_data + output_len, evt->data, evt->data_len);
                 //(char*)(evt->user_data)[evt->data_len] = '\0';
             }
@@ -150,6 +150,7 @@ void get_maze(int x, int y, int m[][x])
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
+
     // GET
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK)
@@ -189,6 +190,7 @@ void get_maze(int x, int y, int m[][x])
         }
         r += 1;
     }
+
 
     cJSON_Delete(maze);
     esp_http_client_cleanup(client);

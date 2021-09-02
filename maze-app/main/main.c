@@ -36,8 +36,22 @@ static lv_obj_t *tab_view;
 
 static void tab_event_cb(lv_obj_t *slider, lv_event_t event);
 
+void heap_caps_alloc_failed_hook(size_t requested_size, uint32_t caps, const char *function_name)
+{
+    printf("%s was called but failed to allocate %d bytes with 0x%X capabilities. \n", function_name, requested_size, caps);
+    int stackSize = uxTaskGetStackHighWaterMark(NULL);
+    int minHeap = xPortGetMinimumEverFreeHeapSize();
+    int heapSize = xPortGetFreeHeapSize();
+    int capsSize = heap_caps_get_free_size(caps);
+    ESP_LOGI(TAG, "MAIN STACK HWM %d", stackSize);
+    ESP_LOGI(TAG, "MAIN HEAP HWM %d", heapSize);
+    ESP_LOGI(TAG, "MAIN MIN HEAP HWM %d", minHeap);
+    ESP_LOGI(TAG, "MAIN CAPS HEAP HWM %d", capsSize);
+}
+
 void app_main(void)
 {
+    esp_err_t error = heap_caps_register_failed_alloc_callback(heap_caps_alloc_failed_hook);
     ESP_LOGI(TAG, "\n***************************************************\n MOTIVE MAZE \n***************************************************");
 
     // Initialize NVS for Wi-Fi stack to store data
@@ -53,46 +67,42 @@ void app_main(void)
     esp_log_level_set("ILI9341", ESP_LOG_NONE);
 
     Core2ForAWS_Init();
-    Core2ForAWS_Display_SetBrightness(40); // Last since the display first needs time to finish initializing.
 
     init_imu();
-    init_mot_imu();
     init_button_handlers();
-
+    init_mot_imu();
     ui_start();
 
     int connected = init_wifi();
 
     //Core2ForAWS_Sk6812_SetSideColor(SK6812_SIDE_LEFT, (current_red << 16) + (current_green << 8) + (current_blue));
-    if (connected == true){
+    static const char *btns[] = {"Close", ""};
+    if (connected == true)
+    {
+        maze_client_init();
+        mot_mqtt_client_init();
+        get_maze(MAZE_HEIGHT, MAZE_LEN, MAZE);
+        ESP_LOGI(TAG, "maze %d", MAZE[0][0]);
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
-        static const char *btns[] = {"Close", ""};
         lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
         lv_msgbox_set_text(mbox1, "Wifi Connected");
         lv_msgbox_add_btns(mbox1, btns);
         lv_obj_set_width(mbox1, 200);
-        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
+        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0);
         xSemaphoreGive(xGuiSemaphore);
-       
-        maze_client_init();
-        get_maze(MAZE_HEIGHT,MAZE_LEN,MAZE);
-        ESP_LOGI(TAG, "maze %d", MAZE[0][0]);
-
-        mot_mqtt_client_init();
-
-    }else{
+    }
+    else
+    {
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
-        static const char *btns[] = {"Close", ""};
         lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);
         lv_msgbox_set_text(mbox1, "Wifi Failed");
         lv_msgbox_add_btns(mbox1, btns);
         lv_obj_set_width(mbox1, 200);
-        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0); 
+        lv_obj_align(mbox1, NULL, LV_ALIGN_CENTER, 0, 0);
         xSemaphoreGive(xGuiSemaphore);
     }
 
-
-
+    Core2ForAWS_Display_SetBrightness(40); // Last since the display first needs time to finish initializing.
 }
 
 static void ui_start(void)
@@ -113,7 +123,6 @@ static void ui_start(void)
     display_maze_tab(tab_view);
     display_train_tab(tab_view);
     display_etch_tab(tab_view);
-
 }
 
 static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
@@ -127,7 +136,7 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         vTaskSuspend(MAZE_handle);
         //vTaskSuspend(TILT_MAZE_handle);
         vTaskSuspend(Train_handle);
-     //   vTaskSuspend(Pred_handle);
+        //   vTaskSuspend(Pred_handle);
         vTaskSuspend(Etch_handle);
 
         if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
@@ -140,12 +149,12 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         }
         else if (strcmp(tab_name, TRAIN_TAB_NAME) == 0)
         {
-            ESP_LOGI(TAG, "Resuming :%s",tab_name);
+            ESP_LOGI(TAG, "Resuming :%s", tab_name);
             vTaskResume(Train_handle);
         }
         else if (strcmp(tab_name, ETCH_TAB_NAME) == 0)
         {
-            ESP_LOGI(TAG, "Resuming :%s",tab_name);
+            ESP_LOGI(TAG, "Resuming :%s", tab_name);
             vTaskResume(Etch_handle);
         }
         /*

@@ -213,7 +213,7 @@ void draw_static_maze(lv_obj_t *canvas,
                       int y_maze_len)
 {
     int x_pos, y_pos;
-    int wall_length = (canvas_width / x_maze_len);
+    int wall_length = (canvas_width / x_maze_len) + 1;
 
     lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
 

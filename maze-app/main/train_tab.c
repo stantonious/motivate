@@ -204,11 +204,11 @@ void train_task(void *pvParameters)
             xSemaphoreGive(xImuSemaphore);
             if (current_label == REST_LABEL)
             {
-                send_sample("topic_2", abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
+                send_sample(abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
             }
             else if (resting != true)
             {
-                send_sample("topic_2", abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
+                send_sample(abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
             }
         }
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
