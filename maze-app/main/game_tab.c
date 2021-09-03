@@ -56,9 +56,22 @@ static void game_id_event_handler(lv_obj_t * obj, lv_event_t event)
         char buf[32];
         lv_dropdown_get_selected_str(obj, buf, sizeof(buf));
         printf("Option: %s\n", buf);
-        if (strcmp(buf,"new\n")==0)game_id = 0;
+        if (strcmp(buf,"new")==0)game_id = 0;
         else game_id = atoi(buf);
         get_maze(game_id,MAZE_HEIGHT, MAZE_LEN, MAZE,&x_entry,&y_entry,&x_exit,&y_exit);
+    }
+}
+
+static void player_type_event_handler(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        char buf[32];
+        lv_dropdown_get_selected_str(obj, buf, sizeof(buf));
+        printf("Option: %s\n", buf);
+        if (strcmp(buf,"wizard")==0)player_type = WIZARD;
+        else if (strcmp(buf,"rogue")==0)player_type = ROGUE;
+        else if (strcmp(buf,"fighter")==0)player_type = FIGHTER;
+        printf("platyer type is %d",player_type);
     }
 }
 void display_game_tab(lv_obj_t *tv)
@@ -81,14 +94,24 @@ void display_game_tab(lv_obj_t *tv)
 
     lv_obj_t * gamelist = lv_dropdown_create(cont, NULL);
     lv_dropdown_set_options(gamelist, 
-            "1630680345\n"
-            "1630680344\n"
-            "1630680342\n"
+            "1630704403\n"
+            "1630704410\n"
+            "1630704411\n"
             "new\n"
             );
 
     lv_obj_align(gamelist, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_event_cb(gamelist, game_id_event_handler);
+
+    lv_obj_t * playerlist = lv_dropdown_create(cont, NULL);
+    lv_dropdown_set_options(playerlist, 
+            "wizard\n"
+            "rogue\n"
+            "fighter\n"
+            );
+
+    lv_obj_align(playerlist, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(playerlist, player_type_event_handler);
 
      /*Create a slider*/
     lv_obj_t *s_lbl = lv_label_create(cont, NULL);

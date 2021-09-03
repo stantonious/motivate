@@ -39,6 +39,7 @@ extern const uint32_t mot0_public_pem_length;
 
 static int8_t op_x = -1;
 static int8_t op_y = -1;
+static int8_t op_t = 1;
 
 static esp_mqtt_client_handle_t glb_client;
 
@@ -96,6 +97,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             cJSON *time = cJSON_GetObjectItemCaseSensitive(message_json, "time");
             cJSON *x = cJSON_GetObjectItemCaseSensitive(message_json, "x");
             cJSON *y = cJSON_GetObjectItemCaseSensitive(message_json, "y");
+            cJSON *t = cJSON_GetObjectItemCaseSensitive(message_json, "t");
 
             if (strcmp(id->valuestring, mot_client_id) != 0)
             {
@@ -109,6 +111,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                 {
                     op_x = x->valueint;
                     op_y = y->valueint;
+                    op_t = t->valueint;
                 }
             }
             else
@@ -194,10 +197,11 @@ void mot_mqtt_client_init(int game_id)
     is_inited = true;
 }
 
-void get_op_x_y(int8_t *x, int8_t *y)
+void get_op_x_y_t(int8_t *x, int8_t *y,int8_t *t)
 {
     *x = op_x;
     *y = op_y;
+    *t = op_t;
 }
 
 void check_null(cJSON *p, int l)
@@ -216,7 +220,7 @@ void fdump(float **buf, int m)
         }
     }
 }
-void send_position(int x, int y, unsigned time)
+void send_position(int x, int y,int t, unsigned time)
 {
     if (!is_inited)
     {
@@ -228,11 +232,13 @@ void send_position(int x, int y, unsigned time)
     cJSON *id = cJSON_CreateString(mot_client_id);
     cJSON *pos_x = cJSON_CreateNumber(x);
     cJSON *pos_y = cJSON_CreateNumber(y);
+    cJSON *pos_t = cJSON_CreateNumber(t);
 
     cJSON_AddItemToObject(pos, "time", ltime);
     cJSON_AddItemToObject(pos, "id", id);
     cJSON_AddItemToObject(pos, "x", pos_x);
     cJSON_AddItemToObject(pos, "y", pos_y);
+    cJSON_AddItemToObject(pos, "t", pos_t);
 
     cJSON_PrintPreallocated(pos, json_buf, JSON_BUFSIZE, false);
     int pub_ret = esp_mqtt_client_publish(glb_client, game_topic, json_buf, 0, 1, 0);

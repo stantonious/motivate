@@ -3,8 +3,12 @@
 #include <stdbool.h>
 #include "maze_utils.h"
 
+#define WIZARD 1
+#define ROGUE 2
+#define FIGHTER 3
 
 extern int game_id;
+extern int player_type;
 
 extern int move_sensitivity;
 extern int turn_sensitivity;

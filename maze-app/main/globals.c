@@ -1,12 +1,13 @@
 #include "globals.h"
 
+int player_type = WIZARD;
 bool infer = true;
 bool use_back = false;
 bool use_side = false;
 int move_sensitivity = 80;
 int turn_sensitivity = 80;
 
-int game_id = 1630680345;
+int game_id = 1630704403;
 int x_entry = 0;
 int y_entry = 0;
 int x_exit = 0;

@@ -111,7 +111,7 @@ void reset(lv_obj_t* canvas, lv_obj_t* minimapcanvas)
 
     int x_init_pos, y_init_pos;
     get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
-    draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
+    draw_status(canvas,player_type, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
 
 }
@@ -287,12 +287,13 @@ void maze_task(void *pvParameters)
             draw_maze(canvas, MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);
             int x_pos, y_pos;
             get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
-            draw_status(canvas, 5, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+            draw_status(canvas, player_type, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
         }
 
         int8_t op_x = 0;
         int8_t op_y = 0;
-        get_op_x_y(&op_x, &op_y);
+        int8_t op_t = WIZARD;
+        get_op_x_y_t(&op_x, &op_y,&op_t);
 
         if (moved)
         {
@@ -310,19 +311,20 @@ void maze_task(void *pvParameters)
             y_current_cell = y_new_cell;
 
             get_static_status_pos_from_cell(x_new_cell, y_new_cell, (MINI_PLOT_WIDTH / MAZE_LEN) + 1, 1, 3, 3, &x_new_pos, &y_new_pos);
-            draw_status(minimapcanvas, 5, x_new_pos, y_new_pos, 3, 3);
+            draw_status(minimapcanvas, op_t, x_new_pos, y_new_pos, 3, 3);
 
             draw_maze(canvas, MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);
             get_status_pos_from_cell(x_new_cell, y_new_cell, map_projection, &x_new_pos, &y_new_pos, x_new_cell, y_new_cell);
-            draw_status(canvas, 5, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
+            draw_status(canvas, player_type, x_new_pos, y_new_pos, STATUS_WIDTH, STATUS_LENGTH); //reset status
 
             //Draw op
             int x_pos, y_pos;
             get_status_pos_from_cell(last_test_x, last_test_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             get_status_pos_from_cell(op_x, op_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
-            draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
-            send_position(x_new_cell, y_new_cell, time(NULL));
+            draw_status(canvas, op_t, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+
+            send_position(x_new_cell, y_new_cell,player_type, time(NULL));
 
             //Steps
             lv_label_set_text_fmt(steps_lbl, "Steps:%d", step_cnt);
@@ -334,9 +336,15 @@ void maze_task(void *pvParameters)
             get_status_pos_from_cell(last_test_x, last_test_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             get_status_pos_from_cell(op_x, op_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
-            draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+            draw_status(canvas, op_t, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+
+            get_static_status_pos_from_cell(last_test_x, last_test_y, (MINI_PLOT_WIDTH / MAZE_LEN) + 1, 1, 3, 3, &x_pos, &y_pos);
+            draw_status(minimapcanvas, 0, x_pos, y_pos, 3, 3);
             last_test_x = op_x;
             last_test_y = op_y;
+
+            get_static_status_pos_from_cell(last_test_x, last_test_y, (MINI_PLOT_WIDTH / MAZE_LEN) + 1, 1, 3, 3, &x_pos, &y_pos);
+            draw_status(minimapcanvas, op_t, x_pos, y_pos, 3, 3);
         }
 
         if (infer)

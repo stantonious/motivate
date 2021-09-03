@@ -18,15 +18,15 @@ void draw_status(lv_obj_t *canvas, int status, int x_pos, int y_pos, int status_
     }
     else if (status == 1)
     {
-        rect_dsc.bg_color = LV_COLOR_YELLOW;
+        rect_dsc.bg_color = LV_COLOR_MAROON;
     }
     else if (status == 2)
     {
-        rect_dsc.bg_color = LV_COLOR_MAROON;
+        rect_dsc.bg_color = LV_COLOR_BLACK;
     }
     else if (status == 3)
     {
-        rect_dsc.bg_color = LV_COLOR_GREEN;
+        rect_dsc.bg_color = LV_COLOR_RED;
     }
     else if (status == 4)
     {

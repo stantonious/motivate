@@ -250,14 +250,15 @@ void tilt_maze_task(void *pvParameters)
 
         int8_t op_x = 0;
         int8_t op_y = 0;
-        get_op_x_y(&op_x, &op_y);
+        int8_t op_t = 0;
+        get_op_x_y_t(&op_x, &op_y,&op_t);
         if (op_x >= 0 && op_y >= 0 && (last_test_x != op_x || last_test_y != op_y))
         {
             int x_pos, y_pos;
             get_status_pos_from_cell(last_test_x, last_test_y, NORTH_DIR,&x_pos, &y_pos,x_current_cell,y_current_cell);
             draw_status(canvas, 0, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             get_status_pos_from_cell(op_x, op_y, NORTH_DIR,&x_pos, &y_pos,x_current_cell,y_current_cell);
-            draw_status(canvas, 6, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
+            draw_status(canvas, op_t, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
             last_test_x = op_x;
             last_test_y = op_y;
         }
