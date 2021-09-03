@@ -44,7 +44,7 @@ static esp_mqtt_client_handle_t glb_client;
 
 static bool is_inited = false;
 static const char *json_buf = NULL;
-static const char *game_topic = "motivate/game/1630337075";
+static char game_topic[64];
 static const char *train_topic = "motivate/train";
 static char mot_client_id[CLIENT_ID_LEN + 1];
 
@@ -143,8 +143,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-void mot_mqtt_client_init(void)
+void mot_mqtt_client_init(int game_id)
 {
+    sprintf(game_topic,"motivate/game/%d",game_id);
     ATCA_STATUS ret = Atecc608_GetSerialString(mot_client_id);
 
     if (ret != ATCA_SUCCESS)

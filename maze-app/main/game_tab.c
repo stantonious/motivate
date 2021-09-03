@@ -12,12 +12,10 @@
 
 #include "core2forAWS.h"
 
+#include "globals.h"
+#include "maze_client.h"
 #include "game_tab.h"
 
-static int16_t game_move_sensitivity = 80;
-static int16_t game_turn_sensitivity = 80;
-static bool use_back = false;
-static bool use_side = false;
 
 static void back_ev(lv_obj_t * obj, lv_event_t event)
 {
@@ -38,8 +36,8 @@ static void event_handler(lv_obj_t * obj, lv_event_t event)
 {
     printf(" changing sense  %d",event);
     if(event == LV_EVENT_VALUE_CHANGED) {
-        game_move_sensitivity = 100 - lv_slider_get_value(obj);
-        printf(" changing sense to %d",game_move_sensitivity);
+        move_sensitivity = 100 - lv_slider_get_value(obj);
+        printf(" changing sense to %d",move_sensitivity);
     }
 }
 
@@ -47,32 +45,22 @@ static void event_handler_turn(lv_obj_t * obj, lv_event_t event)
 {
     printf(" changing sense  %d",event);
     if(event == LV_EVENT_VALUE_CHANGED) {
-        game_turn_sensitivity = 100 - lv_slider_get_value(obj);
-        printf(" changing sense to %d",game_turn_sensitivity);
+        turn_sensitivity = 100 - lv_slider_get_value(obj);
+        printf(" changing sense to %d",turn_sensitivity);
     }
 }
 
-
-int16_t get_move_sensitivity()
+static void game_id_event_handler(lv_obj_t * obj, lv_event_t event)
 {
-    return game_move_sensitivity;
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        char buf[32];
+        lv_dropdown_get_selected_str(obj, buf, sizeof(buf));
+        printf("Option: %s\n", buf);
+        if (strcmp(buf,"new\n")==0)game_id = 0;
+        else game_id = atoi(buf);
+        get_maze(game_id,MAZE_HEIGHT, MAZE_LEN, MAZE,&x_entry,&y_entry,&x_exit,&y_exit);
+    }
 }
-
-int16_t get_turn_sensitivity()
-{
-    return game_turn_sensitivity;
-}
-
-bool get_side()
-{
-    return use_side;
-}
-
-bool get_back()
-{
-    return use_back;
-}
-
 void display_game_tab(lv_obj_t *tv)
 {
 
@@ -91,6 +79,16 @@ void display_game_tab(lv_obj_t *tv)
     lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_size(label, LV_VER_RES, LV_HOR_RES - 10);
 
+    lv_obj_t * gamelist = lv_dropdown_create(cont, NULL);
+    lv_dropdown_set_options(gamelist, 
+            "1630680345\n"
+            "1630680344\n"
+            "1630680342\n"
+            "new\n"
+            );
+
+    lv_obj_align(gamelist, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(gamelist, game_id_event_handler);
 
      /*Create a slider*/
     lv_obj_t *s_lbl = lv_label_create(cont, NULL);
@@ -100,13 +98,13 @@ void display_game_tab(lv_obj_t *tv)
     lv_obj_align(move_sensitivity_slider, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_event_cb(move_sensitivity_slider, event_handler);
     lv_slider_set_range(move_sensitivity_slider, -20 , 90);
-    lv_slider_set_value(move_sensitivity_slider,100-game_move_sensitivity,LV_ANIM_OFF);
+    lv_slider_set_value(move_sensitivity_slider,100-move_sensitivity,LV_ANIM_OFF);
 
     lv_obj_t * turn_sensitivity_slider = lv_slider_create(cont, NULL);
     lv_obj_align(turn_sensitivity_slider, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_event_cb(turn_sensitivity_slider, event_handler_turn);
     lv_slider_set_range(turn_sensitivity_slider, -20 , 90);
-    lv_slider_set_value(turn_sensitivity_slider,100-game_turn_sensitivity,LV_ANIM_OFF);
+    lv_slider_set_value(turn_sensitivity_slider,100-turn_sensitivity,LV_ANIM_OFF);
 
      lv_obj_t * b_cb = lv_checkbox_create(cont, NULL);
     lv_checkbox_set_text(b_cb, "Back");

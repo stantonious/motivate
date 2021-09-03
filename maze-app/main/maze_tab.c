@@ -15,7 +15,6 @@
 #include "core2forAWS.h"
 
 #include "imu_task.h"
-//#include "arrow-img-30x30.h"
 #include "motivate_math.h"
 #include "maze_tab.h"
 #include "plots.h"
@@ -23,6 +22,7 @@
 #include "maze.h"
 #include "float_buffer.h"
 
+#include "globals.h"
 #include "mot_mqtt_client.h"
 #include "mot-imu-tf.h"
 #include "game_tab.h"
@@ -43,43 +43,8 @@ static bool redraw_dir = true;
 static int8_t last_test_x = -1;
 static int8_t last_test_y = -1;
 
-bool infer = true;
-
-int MAZE[MAZE_HEIGHT][MAZE_LEN] = {
-    {13, 11, 3, 1, 3, 3, 3, 3, 3, 68, 9, 3, 5, 13},
-    {10, 3, 3, 6, 9, 7, 9, 3, 5, 10, 6, 13, 10, 4},
-    {9, 1, 7, 9, 2, 3, 6, 13, 8, 3, 5, 8, 3, 6},
-    {12, 10, 3, 6, 9, 5, 9, 4, 10, 5, 14, 10, 3, 5},
-    {10, 3, 5, 11, 4, 10, 6, 12, 9, 6, 9, 1, 7, 12},
-    {11, 5, 10, 5, 8, 5, 9, 6, 10, 5, 12, 10, 5, 12},
-    {9, 6, 9, 6, 14, 12, 10, 5, 13, 10, 6, 13, 10, 6},
-    {8, 3, 6, 9, 5, 10, 5, 10, 2, 3, 3, 4, 9, 5},
-    {10, 3, 3, 6, 10, 5, 12, 9, 3, 3, 5, 10, 6, 12},
-    {9, 5, 9, 1, 5, 12, 12, 12, 13, 9, 6, 11, 3, 4},
-    {12, 10, 6, 12, 14, 12, 12, 8, 6, 10, 3, 3, 5, 12},
-    {10, 3, 5, 12, 9, 6, 10, 6, 9, 3, 5, 9, 6, 12},
-    {9, 167, 12, 12, 12, 9, 3, 5, 12, 9, 6, 10, 5, 12},
-    {104, 131, 214, 250, 2, 6, 11, 2, 6, 10, 3, 3, 6, 14}
-
-};
-/*
-static int MAZE[MAZE_HEIGHT][MAZE_LEN] = {
-    {155, 181, 9, 3, 3, 3, 3, 7, 9, 3, 3, 3, 1, 5}, 
-    {13, 12, 8, 5, 9, 5, 9, 3, 6, 9, 1, 7, 12, 12}, 
-    {12, 12, 174, 10, 6, 10, 2, 3, 3, 4, 14, 9, 6, 12}, 
-    {12, 10, 131, 3, 3, 3, 5, 11, 3, 6, 9, 6, 13, 12}, 
-    {8, 3, 1, 3, 147, 181, 12, 9, 3, 5, 12, 13, 8, 6}, 
-    {12, 13, 10, 3, 5, 14, 10, 6, 13, 12, 12, 10, 2, 5}, 
-    {12, 10, 1, 5, 10, 3, 145, 179, 4, 12, 10, 5, 9, 6}, 
-    {10, 3, 6, 12, 11, 5, 10, 5, 14, 10, 3, 6, 12, 13}, 
-    {9, 3, 5, 10, 3, 0, 7, 12, 153, 179, 3, 3, 6, 12}, 
-    {10, 5, 10, 3, 3, 4, 9, 4, 12, 11, 1, 5, 9, 6}, 
-    {13, 12, 9, 3, 5, 14, 12, 14, 12, 9, 166, 12, 8, 5}, 
-    {8, 6, 10, 5, 10, 3, 6, 9, 6, 12, 137, 6, 14, 12}, 
-    {2, 3, 5, 12, 9, 3, 5, 12, 11, 4, 12, 9, 147, 180}, 
-    {9, 3, 6, 10, 2, 7, 10, 2, 3, 6, 10, 6, 11, 6}};
-*/
 static int step_cnt = 0;
+static int last_game_id;
 
 void display_maze_tab(lv_obj_t *tv)
 {
@@ -111,13 +76,6 @@ void display_maze_tab(lv_obj_t *tv)
     lv_label_set_text(inf_lbl, "Unknown ");
     lv_obj_align(inf_lbl, NULL, LV_ALIGN_IN_TOP_RIGHT, -15, MINI_PLOT_HEIGHT + 25);
 
-    draw_maze(canvas, MAZE, MAZE_LEN, MAZE_HEIGHT, NORTH_DIR, x_current_cell, y_current_cell);
-    draw_static_maze(minimapcanvas, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, MAZE, MAZE_LEN, MAZE_HEIGHT);
-
-    int x_init_pos, y_init_pos;
-    get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
-    draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
-    xSemaphoreGive(xGuiSemaphore);
 
     //inf led
     lv_obj_t *inf_led = lv_led_create(test_tab, NULL);
@@ -127,6 +85,7 @@ void display_maze_tab(lv_obj_t *tv)
         lv_led_on(inf_led);
     else
         lv_led_off(inf_led);
+    xSemaphoreGive(xGuiSemaphore);
 
     static lv_obj_t *maze_parms[5];
     maze_parms[0] = canvas;
@@ -134,9 +93,28 @@ void display_maze_tab(lv_obj_t *tv)
     maze_parms[2] = minimapcanvas;
     maze_parms[3] = steps_lbl;
     maze_parms[4] = inf_led;
+
+    reset(canvas,minimapcanvas);
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, maze_parms, 1, &MAZE_handle, 1);
 }
 
+void reset(lv_obj_t* canvas, lv_obj_t* minimapcanvas)
+{
+    x_current_cell = x_entry;
+    y_current_cell = y_entry;
+    step_cnt = 0;
+
+    last_game_id = game_id;
+    xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+    draw_maze(canvas, MAZE, MAZE_LEN, MAZE_HEIGHT, NORTH_DIR, x_current_cell, y_current_cell);
+    draw_static_maze(minimapcanvas, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, MAZE, MAZE_LEN, MAZE_HEIGHT);
+
+    int x_init_pos, y_init_pos;
+    get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
+    draw_status(canvas, 5, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
+    xSemaphoreGive(xGuiSemaphore);
+
+}
 //float step_coefs[] = {1., 1., 1., -1., -1};
 float step_coefs[] = {.2, .2, .2, .2, .2};
 void maze_task(void *pvParameters)
@@ -144,6 +122,7 @@ void maze_task(void *pvParameters)
 
     long last_move_ticks = 0;
     long last_turn_ticks = 0;
+    last_game_id = game_id;
 
     lv_obj_t **maze_parms = (lv_obj_t **)pvParameters;
     lv_obj_t *canvas = (lv_obj_t *)maze_parms[0];
@@ -154,15 +133,20 @@ void maze_task(void *pvParameters)
 
     vTaskSuspend(NULL);
 
+    //Let the maze_client init with entry/exit info
+    x_current_cell = x_entry;
+    y_current_cell = y_entry;
+
     for (;;)
     {
+        if (game_id != last_game_id) reset(canvas,minimapcanvas);
         long ticks = xTaskGetTickCount();
         long update_delta = ticks - last_move_ticks;
         long turn_delta = ticks - last_turn_ticks;
         int y_new_cell, x_new_cell;
         bool moved = false;
 
-        if (infer && turn_delta > get_turn_sensitivity())
+        if (infer && turn_delta > move_sensitivity)
         {
             last_turn_ticks = ticks;
 
@@ -189,7 +173,7 @@ void maze_task(void *pvParameters)
             xSemaphoreGive(xGuiSemaphore);
         }
 
-        if (infer && update_delta > get_move_sensitivity())
+        if (infer && update_delta > move_sensitivity)
         {
             last_move_ticks = ticks;
             moved = false;
@@ -246,7 +230,7 @@ void maze_task(void *pvParameters)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case BACKWARD_LABEL:
-                if (!get_back())
+                if (!use_back)
                 {
                     ESP_LOGI(TAG, "Back not enabled");
                     break;
@@ -258,7 +242,7 @@ void maze_task(void *pvParameters)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case LEFTSIDE_LABEL:
-                if (!get_side())
+                if (!use_side)
                 {
                     ESP_LOGI(TAG, "Side not enabled");
                     break;
@@ -270,7 +254,7 @@ void maze_task(void *pvParameters)
                     ESP_LOGI(TAG, "Can't move from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
                 break;
             case RIGHTSIDE_LABEL:
-                if (!get_side())
+                if (!use_side)
                 {
                     ESP_LOGI(TAG, "Side not enabled");
                     break;
@@ -320,12 +304,12 @@ void maze_task(void *pvParameters)
 
             //Reset static status
             draw_static_maze(minimapcanvas, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, MAZE, MAZE_LEN, MAZE_HEIGHT);
-            get_static_status_pos_from_cell(x_current_cell, y_current_cell, MINI_PLOT_WIDTH / MAZE_LEN, 1, 3, 3, &x_new_pos, &y_new_pos);
+            get_static_status_pos_from_cell(x_current_cell, y_current_cell, (MINI_PLOT_WIDTH / MAZE_LEN) + 1, 1, 3, 3, &x_new_pos, &y_new_pos);
             draw_status(minimapcanvas, 0, x_new_pos, y_new_pos, 3, 3);
             x_current_cell = x_new_cell;
             y_current_cell = y_new_cell;
 
-            get_static_status_pos_from_cell(x_new_cell, y_new_cell, MINI_PLOT_WIDTH / MAZE_LEN, 1, 3, 3, &x_new_pos, &y_new_pos);
+            get_static_status_pos_from_cell(x_new_cell, y_new_cell, (MINI_PLOT_WIDTH / MAZE_LEN) + 1, 1, 3, 3, &x_new_pos, &y_new_pos);
             draw_status(minimapcanvas, 5, x_new_pos, y_new_pos, 3, 3);
 
             draw_maze(canvas, MAZE, MAZE_LEN, MAZE_HEIGHT, map_projection, x_current_cell, y_current_cell);

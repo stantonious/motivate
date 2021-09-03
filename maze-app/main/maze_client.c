@@ -13,6 +13,7 @@
 #include "esp_log.h"
 
 #include "esp_http_client.h"
+#include "maze_utils.h"
 #include "maze_client.h"
 
 #define MAX_HTTP_RECV_BUFFER 512
@@ -36,6 +37,7 @@ extern const uint8_t mot0_private_pem_start[] asm("_binary_mot0_private_pem_star
 extern const uint8_t mot0_private_pem_end[] asm("_binary_mot0_private_pem_end");
 extern const uint32_t mot0_private_pem_length;
 
+bool is_inited=false;
 void maze_client_init(void)
 {
     local_response_buffer = malloc(sizeof(char) * MAX_HTTP_OUTPUT_BUFFER);
@@ -47,6 +49,7 @@ void maze_client_init(void)
         return;
     }
 
+    is_inited = true;
     //    xTaskCreatePinnedToCore(maze_client_task, "MazeClientTask", 2048, NULL, 1, &MazeClientHandle, 1);
 }
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
@@ -131,9 +134,11 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-void get_maze(int x, int y, int m[][x])
+
+void get_maze(int maze_id,int x,int y,int m[][x],int* entry_x,int* entry_y,int* exit_x,int* exit_y)
 {
 
+    if (! is_inited)return;
     /**
      * NOTE: All the configuration parameters for http_client must be spefied either in URL or as host and path parameters.
      * If host and path parameters are not set, query parameter will be ignored. In such cases,
@@ -141,9 +146,13 @@ void get_maze(int x, int y, int m[][x])
      *
      * If URL as well as host and path parameters are specified, values of host and path will be considered.
      */
+    static char url_buf[80];
+    if (maze_id == 0) sprintf(url_buf,"http://dl3to8c26ssxq.cloudfront.net/production/maze?x=%d&y=%d",MAZE_LEN,MAZE_HEIGHT);
+    else sprintf(url_buf,"http://dl3to8c26ssxq.cloudfront.net/production/maze?id=%d",maze_id);
+    ESP_LOGI(TAG, "URL: %s", url_buf);
     esp_http_client_config_t config = {
-        //.url = "http://dl3to8c26ssxq.cloudfront.net/production/maze?x=14&y=14",
-        .url = "http://dl3to8c26ssxq.cloudfront.net/production/maze?id=1630337075",
+        //.url = printf("http://dl3to8c26ssxq.cloudfront.net/production/maze?x=%d&y=%d",x,y),
+        .url = url_buf,
         .event_handler = _http_event_handler,
         .user_data = local_response_buffer, // Pass address of local buffer to get response
         .use_global_ca_store = true,
@@ -175,7 +184,8 @@ void get_maze(int x, int y, int m[][x])
 
     cJSON *d = cJSON_GetObjectItemCaseSensitive(maze, "cells");
 
-    bool isarray = cJSON_IsArray(d);
+    cJSON *entry = cJSON_GetObjectItemCaseSensitive(maze,"entry");
+    cJSON *exit = cJSON_GetObjectItemCaseSensitive(maze,"exit");
 
     cJSON *n_row;
     int r = 0;
@@ -191,6 +201,11 @@ void get_maze(int x, int y, int m[][x])
         r += 1;
     }
 
+    //Maze provides entry/exit as y,x
+    *entry_x = cJSON_GetArrayItem(entry,1)->valueint; 
+    *entry_y = cJSON_GetArrayItem(entry,0)->valueint;
+    *exit_x = cJSON_GetArrayItem(exit,1)->valueint; 
+    *exit_y = cJSON_GetArrayItem(exit,0)->valueint;
 
     cJSON_Delete(maze);
     esp_http_client_cleanup(client);

@@ -26,7 +26,7 @@ void get_next_cell(int x_from, int y_from, int *x_to, int *y_to, int dir)
     }
 }
 
-bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, int x_from, int y_from, int *x_to, int *y_to, int dir,bool is_jump,bool is_duck)
+bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, int x_from, int y_from, int *x_to, int *y_to, int dir, bool is_jump, bool is_duck)
 {
 
     get_next_cell(x_from, y_from, x_to, y_to, dir);
@@ -40,35 +40,45 @@ bool can_move(int maze[MAZE_HEIGHT][MAZE_LEN], int x_maze_len, int y_maze_len, i
         *y_to < 0)
         return false;
 
-
-
     if (dir == NORTH_DIR && wall & NORTH_BIT)
     {
-        if (status_wall != WALL_N) return false;
-        else if (status_wall_status == WALL_STAT_LOW && is_duck) return true;
-        else if (status_wall_status == WALL_STAT_HIGH && is_jump) return true;
+        if (status_wall != WALL_N)
+            return false;
+        else if (status_wall_status == WALL_STAT_LOW && is_duck)
+            return true;
+        else if (status_wall_status == WALL_STAT_HIGH && is_jump)
+            return true;
         return false;
     }
 
     if (dir == SOUTH_DIR && wall & SOUTH_BIT)
     {
-        if (status_wall != WALL_S) return false;
-        else if (status_wall_status == WALL_STAT_LOW && is_duck) return true;
-        else if (status_wall_status == WALL_STAT_HIGH && is_jump) return true;
+        if (status_wall != WALL_S)
+            return false;
+        else if (status_wall_status == WALL_STAT_LOW && is_duck)
+            return true;
+        else if (status_wall_status == WALL_STAT_HIGH && is_jump)
+            return true;
         return false;
     }
     if (dir == EAST_DIR && wall & EAST_BIT)
     {
-        if (status_wall != WALL_E) return false;
-        else if (status_wall_status == WALL_STAT_LOW && is_duck) return true;
-        else if (status_wall_status == WALL_STAT_HIGH && is_jump) return true;
+        if (status_wall != WALL_E)
+            return false;
+        else if (status_wall_status == WALL_STAT_LOW && is_duck)
+            return true;
+        else if (status_wall_status == WALL_STAT_HIGH && is_jump)
+            return true;
         return false;
     }
     if (dir == WEST_DIR && wall & WEST_BIT)
     {
-        if (status_wall != WALL_W) return false;
-        else if (status_wall_status == WALL_STAT_LOW && is_duck) return true;
-        else if (status_wall_status == WALL_STAT_HIGH && is_jump) return true;
+        if (status_wall != WALL_W)
+            return false;
+        else if (status_wall_status == WALL_STAT_LOW && is_duck)
+            return true;
+        else if (status_wall_status == WALL_STAT_HIGH && is_jump)
+            return true;
         return false;
     }
 

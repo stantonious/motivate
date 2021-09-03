@@ -2,11 +2,11 @@
 
 #include <stdbool.h>
 
-#define CANVAS_WIDTH 220
-#define CANVAS_HEIGHT 220
-
 #define MAZE_LEN 14
 #define MAZE_HEIGHT 14
+
+#define CANVAS_WIDTH 220
+#define CANVAS_HEIGHT 220
 
 
 #define NORTH_BIT 0x0001

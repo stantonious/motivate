@@ -15,6 +15,7 @@
 #include "esp_event.h"
 #include "nvs_flash.h"
 
+#include "globals.h"
 #include "core2forAWS.h"
 #include "game_tab.h"
 #include "maze_tab.h"
@@ -30,7 +31,6 @@
 #include "etch_tab.h"
 
 static const char *TAG = "MAIN";
-
 static void ui_start(void);
 static lv_obj_t *tab_view;
 
@@ -51,7 +51,7 @@ void heap_caps_alloc_failed_hook(size_t requested_size, uint32_t caps, const cha
 
 void app_main(void)
 {
-    esp_err_t error = heap_caps_register_failed_alloc_callback(heap_caps_alloc_failed_hook);
+    heap_caps_register_failed_alloc_callback(heap_caps_alloc_failed_hook);
     ESP_LOGI(TAG, "\n***************************************************\n MOTIVE MAZE \n***************************************************");
 
     // Initialize NVS for Wi-Fi stack to store data
@@ -79,9 +79,12 @@ void app_main(void)
     static const char *btns[] = {"Close", ""};
     if (connected == true)
     {
+        ESP_LOGI(TAG, "init maze client");
         maze_client_init();
-        mot_mqtt_client_init();
-        get_maze(MAZE_HEIGHT, MAZE_LEN, MAZE);
+        ESP_LOGI(TAG, "init mqtt client");
+        mot_mqtt_client_init(game_id);
+        ESP_LOGI(TAG, "get maze");
+        get_maze(game_id,MAZE_HEIGHT, MAZE_LEN, MAZE,&x_entry,&y_entry,&x_exit,&y_exit);
         ESP_LOGI(TAG, "maze %d", MAZE[0][0]);
         xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
         lv_obj_t *mbox1 = lv_msgbox_create(lv_scr_act(), NULL);

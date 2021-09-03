@@ -12,6 +12,7 @@
 
 #include "core2forAWS.h"
 
+#include "globals.h"
 #include "button_handler.h"
 #include "train_tab.h"
 #include "maze_tab.h"
