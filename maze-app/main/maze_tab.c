@@ -347,6 +347,14 @@ void maze_task(void *pvParameters)
             draw_status(minimapcanvas, op_t, x_pos, y_pos, 3, 3);
         }
 
+        if (op_x == x_current_cell && op_y == y_current_cell) //collision
+        {
+            //TODO implement w vs r vs f
+            x_current_cell = x_entry;
+            y_current_cell = y_entry;
+            moved = true;
+        }
+
         if (infer)
             lv_led_on(inf_led);
         else
