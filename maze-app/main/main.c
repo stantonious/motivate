@@ -82,7 +82,7 @@ void app_main(void)
         ESP_LOGI(TAG, "init maze client");
         maze_client_init();
         ESP_LOGI(TAG, "init mqtt client");
-        mot_mqtt_client_init(game_id);
+        mot_mqtt_client_init(game_id,CONFIG_MOT_CLIENT_ID);
         ESP_LOGI(TAG, "get maze");
         get_maze(game_id,MAZE_HEIGHT, MAZE_LEN, MAZE,&x_entry,&y_entry,&x_exit,&y_exit);
         ESP_LOGI(TAG, "maze %d", MAZE[0][0]);

@@ -30,6 +30,8 @@
 #define MINI_PLOT_WIDTH 88
 #define MINI_PLOT_HEIGHT 88 //multiple of MAZE_LEN
 
+#define STATS_THRESH 3000 //30 seconds
+
 static lv_color_t *cbuf;
 static lv_color_t *minimapbuf;
 static const char *TAG = MAZE_TAB_NAME;
@@ -44,6 +46,9 @@ static int8_t last_test_x = -1;
 static int8_t last_test_y = -1;
 
 static int step_cnt = 0;
+static int game_session;
+static int capture_count = 0;
+static int caught_count = 0;
 static int last_game_id;
 
 void display_maze_tab(lv_obj_t *tv)
@@ -65,7 +70,6 @@ void display_maze_tab(lv_obj_t *tv)
     lv_obj_align(minimapcanvas, NULL, LV_ALIGN_IN_TOP_RIGHT, -5, 5);
     lv_canvas_fill_bg(minimapcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
 
-
     //steps label
     lv_obj_t *steps_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(steps_lbl, "Steps:0");
@@ -75,7 +79,6 @@ void display_maze_tab(lv_obj_t *tv)
     lv_obj_t *inf_lbl = lv_label_create(test_tab, NULL);
     lv_label_set_text(inf_lbl, "Unknown ");
     lv_obj_align(inf_lbl, NULL, LV_ALIGN_IN_TOP_RIGHT, -15, MINI_PLOT_HEIGHT + 25);
-
 
     //inf led
     lv_obj_t *inf_led = lv_led_create(test_tab, NULL);
@@ -94,15 +97,18 @@ void display_maze_tab(lv_obj_t *tv)
     maze_parms[3] = steps_lbl;
     maze_parms[4] = inf_led;
 
-    reset(canvas,minimapcanvas);
+    reset(canvas, minimapcanvas);
     xTaskCreatePinnedToCore(maze_task, "MazeTask", 2048 * 2, maze_parms, 1, &MAZE_handle, 1);
 }
 
-void reset(lv_obj_t* canvas, lv_obj_t* minimapcanvas)
+void reset(lv_obj_t *canvas, lv_obj_t *minimapcanvas)
 {
     x_current_cell = x_entry;
     y_current_cell = y_entry;
     step_cnt = 0;
+    capture_count = 0;
+    caught_count = 0;
+    game_session = (int)time(NULL);
 
     last_game_id = game_id;
     xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
@@ -111,9 +117,8 @@ void reset(lv_obj_t* canvas, lv_obj_t* minimapcanvas)
 
     int x_init_pos, y_init_pos;
     get_status_pos_from_cell(x_current_cell, y_current_cell, map_projection, &x_init_pos, &y_init_pos, x_current_cell, y_current_cell);
-    draw_status(canvas,player_type, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
+    draw_status(canvas, player_type, x_init_pos, y_init_pos, STATUS_WIDTH, STATUS_LENGTH);
     xSemaphoreGive(xGuiSemaphore);
-
 }
 //float step_coefs[] = {1., 1., 1., -1., -1};
 float step_coefs[] = {.2, .2, .2, .2, .2};
@@ -122,6 +127,7 @@ void maze_task(void *pvParameters)
 
     long last_move_ticks = 0;
     long last_turn_ticks = 0;
+    long last_stats_ticks = 0;
     last_game_id = game_id;
 
     lv_obj_t **maze_parms = (lv_obj_t **)pvParameters;
@@ -137,20 +143,26 @@ void maze_task(void *pvParameters)
     x_current_cell = x_entry;
     y_current_cell = y_entry;
 
+    int8_t op_x = 0;
+    int8_t op_y = 0;
+    int8_t op_t = WIZARD;
+
     for (;;)
     {
-        if (game_id != last_game_id) reset(canvas,minimapcanvas);
+        if (game_id != last_game_id)
+            reset(canvas, minimapcanvas);
         long ticks = xTaskGetTickCount();
         long update_delta = ticks - last_move_ticks;
         long turn_delta = ticks - last_turn_ticks;
+        long stats_delta = ticks - last_stats_ticks;
         int y_new_cell, x_new_cell;
         bool moved = false;
 
-        if (infer && turn_delta > move_sensitivity)
+        if (infer && turn_delta > turn_sensitivity)
         {
             last_turn_ticks = ticks;
 
-            int inf = get_latest_inf(4);
+            int inf = get_latest_inf((int)(move_sensitivity/10));
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
@@ -178,7 +190,7 @@ void maze_task(void *pvParameters)
             last_move_ticks = ticks;
             moved = false;
 
-            int inf = get_latest_inf(4);
+            int inf = get_latest_inf((int)(move_sensitivity/10));
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
@@ -290,14 +302,26 @@ void maze_task(void *pvParameters)
             draw_status(canvas, player_type, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
         }
 
-        int8_t op_x = 0;
-        int8_t op_y = 0;
-        int8_t op_t = WIZARD;
-        get_op_x_y_t(&op_x, &op_y,&op_t);
+        get_op_x_y_t(&op_x, &op_y, &op_t);
+
+        if (op_x == x_current_cell && op_y == y_current_cell) //collision
+        {
+            if ((op_t == WIZARD && player_type == ROGUE) || (op_t == ROGUE && player_type == FIGHTER) || (op_t == FIGHTER && player_type == WIZARD))
+            {
+                //Back to start
+                x_current_cell = x_entry;
+                y_current_cell = y_entry;
+                moved = true;
+            }
+            else if ((player_type == WIZARD && op_t == ROGUE) || (player_type == ROGUE && op_t == FIGHTER) || (player_type == FIGHTER && op_t == WIZARD))
+            {
+                //TODO Send Op to start
+            }
+        }
 
         if (moved)
         {
-            step_cnt += 1 ;
+            step_cnt += 1;
             int x_new_pos = 0;
             int y_new_pos = 0;
             ESP_LOGI(TAG, "moving from [%i,%i] to [%i,%i] dir %i", x_current_cell, y_current_cell, x_new_cell, y_new_cell, map_projection);
@@ -324,7 +348,7 @@ void maze_task(void *pvParameters)
             get_status_pos_from_cell(op_x, op_y, map_projection, &x_pos, &y_pos, x_current_cell, y_current_cell);
             draw_status(canvas, op_t, x_pos, y_pos, STATUS_WIDTH, STATUS_LENGTH);
 
-            send_position(x_new_cell, y_new_cell,player_type, time(NULL));
+            send_position(x_new_cell, y_new_cell, player_type, time(NULL));
 
             //Steps
             lv_label_set_text_fmt(steps_lbl, "Steps:%d", step_cnt);
@@ -347,19 +371,32 @@ void maze_task(void *pvParameters)
             draw_status(minimapcanvas, op_t, x_pos, y_pos, 3, 3);
         }
 
-        if (op_x == x_current_cell && op_y == y_current_cell) //collision
-        {
-            //TODO implement w vs r vs f
-            x_current_cell = x_entry;
-            y_current_cell = y_entry;
-            moved = true;
-        }
-
         if (infer)
             lv_led_on(inf_led);
         else
             lv_led_off(inf_led);
         xSemaphoreGive(xGuiSemaphore);
+        ESP_LOGI(TAG, " status timer %d", (int)stats_delta);
+
+        if (stats_delta > STATS_THRESH)
+        {
+            last_stats_ticks = ticks;
+            send_stats(game_id, game_session, step_cnt, capture_count, caught_count, (unsigned)time(NULL));
+            ESP_LOGI(TAG, "sending stats");
+        }
+
+        if (x_current_cell == x_exit && y_current_cell == y_exit) //Exit!
+        {
+
+            xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+            lv_obj_t *end_mb = lv_msgbox_create(canvas, NULL);
+            static const char *end_mb_btns[] = {"Close", ""};
+            lv_msgbox_set_text(end_mb, "Congrats!");
+            lv_msgbox_add_btns(end_mb, end_mb_btns);
+            lv_obj_set_width(end_mb, 200);
+            lv_obj_align(end_mb, NULL, LV_ALIGN_CENTER, 0, 0);
+            xSemaphoreGive(xGuiSemaphore);
+        }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     vTaskDelete(NULL); // Should never get to here...

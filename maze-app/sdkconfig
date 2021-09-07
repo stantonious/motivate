@@ -131,6 +131,12 @@ CONFIG_ESP_WIFI_PASSWORD="B00BF00D77"
 # end of WiFi Configuration
 
 #
+# MOT MQTT Config
+#
+CONFIG_MOT_CLIENT_ID="mot-bws-1"
+# end of MOT MQTT Config
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y
