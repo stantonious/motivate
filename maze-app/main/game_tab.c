@@ -27,14 +27,12 @@ static void back_ev(lv_obj_t * obj, lv_event_t event)
 
 static void side_ev(lv_obj_t * obj, lv_event_t event)
 {
-    printf(" changing sense  %d",event);
     if(event == LV_EVENT_VALUE_CHANGED) {
         use_side = lv_checkbox_get_state(obj);
     }
 }
 static void event_handler(lv_obj_t * obj, lv_event_t event)
 {
-    printf(" changing move sense  %d\n",event);
     if(event == LV_EVENT_VALUE_CHANGED) {
         move_sensitivity = 100 - lv_slider_get_value(obj);
         printf(" changing sense to %d",move_sensitivity);
@@ -43,7 +41,6 @@ static void event_handler(lv_obj_t * obj, lv_event_t event)
 
 static void event_handler_turn(lv_obj_t * obj, lv_event_t event)
 {
-    printf(" changing turn sense  %d\n",event);
     if(event == LV_EVENT_VALUE_CHANGED) {
         turn_sensitivity = 100 - lv_slider_get_value(obj);
         printf(" changing sense to %d",turn_sensitivity);

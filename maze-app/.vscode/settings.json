@@ -10,6 +10,7 @@
         "imu_task.h": "c",
         "maze_tab.h": "c",
         "plots.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "mot_mqtt_client.h": "c"
     }
 }

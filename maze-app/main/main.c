@@ -20,15 +20,12 @@
 #include "game_tab.h"
 #include "maze_tab.h"
 #include "train_tab.h"
-#include "pred_tab.h"
-#include "tilt_maze_tab.h"
 #include "button_handler.h"
 #include "app_wifi.h"
 #include "maze_client.h"
 #include "mot-imu-tf.h"
 #include "mot_mqtt_client.h"
 #include "imu_task.h"
-#include "etch_tab.h"
 
 static const char *TAG = "MAIN";
 static void ui_start(void);
@@ -122,10 +119,8 @@ static void ui_start(void)
     xSemaphoreGive(xGuiSemaphore);
 
     display_game_tab(tab_view);
-    //display_pred_tab(tab_view);
     display_maze_tab(tab_view);
     display_train_tab(tab_view);
-    display_etch_tab(tab_view);
 }
 
 static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
@@ -137,35 +132,16 @@ static void tab_event_cb(lv_obj_t *slider, lv_event_t event)
         ESP_LOGI(TAG, "Current Active Tab: %s\n", tab_name);
 
         vTaskSuspend(MAZE_handle);
-        //vTaskSuspend(TILT_MAZE_handle);
         vTaskSuspend(Train_handle);
-        //   vTaskSuspend(Pred_handle);
-        vTaskSuspend(Etch_handle);
 
         if (strcmp(tab_name, MAZE_TAB_NAME) == 0)
         {
             vTaskResume(MAZE_handle);
-        }
-        else if (strcmp(tab_name, TILT_MAZE_TAB_NAME) == 0)
-        {
-            vTaskResume(TILT_MAZE_handle);
         }
         else if (strcmp(tab_name, TRAIN_TAB_NAME) == 0)
         {
             ESP_LOGI(TAG, "Resuming :%s", tab_name);
             vTaskResume(Train_handle);
         }
-        else if (strcmp(tab_name, ETCH_TAB_NAME) == 0)
-        {
-            ESP_LOGI(TAG, "Resuming :%s", tab_name);
-            vTaskResume(Etch_handle);
-        }
-        /*
-        else if (strcmp(tab_name, PRED_TAB_NAME) == 0)
-        {
-            ESP_LOGI(TAG, "Resuming :%s",tab_name);
-            vTaskResume(Pred_handle);
-        }
-        */
     }
 }
