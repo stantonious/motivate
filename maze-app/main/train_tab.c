@@ -202,11 +202,7 @@ void train_task(void *pvParameters)
             mk_copy(gy_buf, gbuf[1], BUFSIZE);
             mk_copy(gz_buf, gbuf[2], BUFSIZE);
             xSemaphoreGive(xImuSemaphore);
-            if (current_label == REST_LABEL)
-            {
-                send_sample(abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
-            }
-            else if (resting != true)
+            if (current_label == REST_LABEL || (resting != true))
             {
                 send_sample(abuf, gbuf, BUFSIZE, BUFSIZE, current_label, t);
             }
