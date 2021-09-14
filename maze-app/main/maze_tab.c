@@ -33,7 +33,8 @@
 
 #define STATS_THRESH 3000 //30 seconds
 #define STA_BLINK_THRESH 40
-#define LAST_N_INF 5
+#define LAST_N_INF 3
+#define INF_CONF .70
 #define ACCEL_COS_THRES .95
 
 static lv_color_t *cbuf;
@@ -66,14 +67,14 @@ void display_maze_tab(lv_obj_t *tv)
     lv_canvas_set_buffer(canvas, cbuf, CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
 
     lv_obj_align(canvas, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 5);
-    lv_canvas_fill_bg(canvas, LV_COLOR_SILVER, LV_OPA_COVER);
+    lv_canvas_fill_bg(canvas, LV_COLOR_WHITE, LV_OPA_COVER);
 
     //mini plot
     minimapbuf = (lv_color_t *)heap_caps_malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
     lv_obj_t *minimapcanvas = lv_canvas_create(test_tab, NULL);
     lv_canvas_set_buffer(minimapcanvas, minimapbuf, MINI_PLOT_WIDTH, MINI_PLOT_HEIGHT, LV_IMG_CF_TRUE_COLOR);
     lv_obj_align(minimapcanvas, NULL, LV_ALIGN_IN_TOP_RIGHT, -5, 5);
-    lv_canvas_fill_bg(minimapcanvas, LV_COLOR_SILVER, LV_OPA_COVER);
+    lv_canvas_fill_bg(minimapcanvas, LV_COLOR_WHITE, LV_OPA_COVER);
 
     //steps label
     lv_obj_t *steps_lbl = lv_label_create(test_tab, NULL);
@@ -193,7 +194,7 @@ void maze_task(void *pvParameters)
         {
             last_turn_ticks = ticks;
 
-            int inf = get_latest_inf(LAST_N_INF);
+            int inf = get_latest_inf(LAST_N_INF,INF_CONF);
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
@@ -221,7 +222,7 @@ void maze_task(void *pvParameters)
             last_move_ticks = ticks;
             moved = false;
 
-            int inf = get_latest_inf(LAST_N_INF);
+            int inf = get_latest_inf(LAST_N_INF,INF_CONF);
 
             xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
             switch (inf)
