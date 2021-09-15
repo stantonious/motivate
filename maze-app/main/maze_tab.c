@@ -34,7 +34,7 @@
 #define STATS_THRESH 3000 //30 seconds
 #define STA_BLINK_THRESH 40
 #define LAST_N_INF 3
-#define INF_CONF .70
+#define INF_CONF .55
 #define ACCEL_COS_THRES .95
 
 static lv_color_t *cbuf;
