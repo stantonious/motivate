@@ -339,8 +339,8 @@ void maze_task(void *pvParameters)
             if ((op_t == WIZARD && player_type == ROGUE) || (op_t == ROGUE && player_type == FIGHTER) || (op_t == FIGHTER && player_type == WIZARD))
             {
                 //Back to start
-                x_current_cell = x_entry;
-                y_current_cell = y_entry;
+                x_new_cell = x_entry;
+                y_new_cell = y_entry;
                 moved = true;
 
                 lv_obj_t *end_mb = lv_msgbox_create(test_tab, NULL);
