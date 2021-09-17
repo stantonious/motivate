@@ -8,9 +8,9 @@ int move_sensitivity = 80;
 int turn_sensitivity = 80;
 
 int game_id = 1630704403;
-int x_entry = 0;
-int y_entry = 0;
-int x_exit = 0;
+int x_entry = 13;
+int y_entry = 13;
+int x_exit = 9;
 int y_exit = 0;
 
 int MAZE[MAZE_HEIGHT][MAZE_LEN] = {
