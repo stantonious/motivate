@@ -3,3 +3,4 @@ build/
 /components/
 sdkconfig*
 certs/
+.vscode/
