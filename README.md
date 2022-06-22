@@ -7,4 +7,4 @@ https://www.hackster.io/421673/motivate-get-people-moving-and-interacting-in-the
 ![PXL_20210914_183244298](https://user-images.githubusercontent.com/7979279/135469562-f7a0c1ba-3325-4923-a1d3-ec55e757bf40.jpg)
 
 ## Video
-https://www.youtu.be/3clZiMbT__8
+https://youtu.be/3clZiMbT__8
